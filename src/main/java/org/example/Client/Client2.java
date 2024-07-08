@@ -21,7 +21,8 @@ public class Client2
     static final int DATA_PORT = 2000;
     static final String DOWNLOAD_DIRECTORY = "download";
     static final String SERVER_NAME = "localhost";
-
+    static boolean isPaused = false;
+    static final Object pauseLock = new Object();
 
     public static void main(String[] args)
     {
@@ -43,7 +44,7 @@ public class Client2
     {
         while (true)
         {
-            System.out.print("COMMAND: ");
+            System.out.print("> ");
             String raw_cmd = sc.nextLine().trim();
             sendCommandToServer(raw_cmd);
             System.out.println("-----------------------------------------");
@@ -60,6 +61,18 @@ public class Client2
         commander = raw_command.substring(0, (raw_command + " ").indexOf(" ")).toUpperCase();
         switch (commander)
         {
+            case "PD":
+                pauseDownload();
+                break;
+            case "RD":
+                resumeDownload();
+                break;
+            case "PU":
+                pauseUpload();
+                break;
+            case "RU":
+                resumeUpload();
+                break;
             case "LOG":
                 login();
                 break;
@@ -75,6 +88,15 @@ public class Client2
             case "INFO":
                 showProfile();
                 break;
+            case "HELP":
+                showHelp();
+                break;
+            case "QUIT":
+                quitServer();
+                break;
+            case "CD":
+                moveToDirectory(raw_command);
+                break;
             case "LS":
                 listFileAndDirectory(raw_command);
                 break;
@@ -82,22 +104,38 @@ public class Client2
                 makeDirectory(raw_command);
                 break;
             case "UP":
-                uploadFile(raw_command);
+                System.out.println("Type 'pu' to pause upload");
+                System.out.println("Type 'ru' to resume upload");
+                new Thread(() ->
+                {
+                    try
+                    {
+                        uploadFile(raw_command);
+                    } catch (IOException e)
+                    {
+                        throw new RuntimeException(e);
+                    }
+                }).start();
                 break;
             case "GET":
-                downloadFile(raw_command);
+                System.out.println("Type 'pd' to pause download");
+                System.out.println("Type 'rd' to resume download");
+                new Thread(() ->
+                {
+                    try
+                    {
+                        downloadFile(raw_command);
+                    } catch (IOException e)
+                    {
+                        throw new RuntimeException(e);
+                    }
+                }).start();
                 break;
             case "RM":
                 removeFileOrDirectory(raw_command);
                 break;
-            case "HELP":
-                showHelp();
-                break;
-            case "QUIT":
-                quitServer();
-                break;
             default:
-                System.out.println("Wrong command! Type 'help' :))");
+                System.out.println("Type 'help'");
                 break;
         }
     }
@@ -114,6 +152,44 @@ public class Client2
         System.out.println("out - logout");
         System.out.println("quit - quit from the server");
         System.out.println("help - see this help");
+    }
+
+    private static void pauseDownload()
+    {
+        System.out.println("Paused download ... (Type 'rd' to resume download)");
+        out.println(commander);
+    }
+
+    private static void resumeDownload()
+    {
+        System.out.println("Resume download");
+        out.println(commander);
+    }
+
+    private static void pauseUpload()
+    {
+        System.out.println("Paused upload ... (type 'ru' to resume upload)");
+        synchronized (pauseLock)
+        {
+            isPaused = true;
+        }
+    }
+
+    private static void resumeUpload()
+    {
+        System.out.println("Resume upload!");
+        synchronized (pauseLock)
+        {
+            isPaused = false;
+            pauseLock.notifyAll();
+        }
+    }
+
+    private static void moveToDirectory(String raw_cmd) throws IOException
+    {
+        out.println(raw_cmd);
+        String cd_status = in.readLine();
+        System.out.println(cd_status);
     }
 
     private static void showProfile()
@@ -193,13 +269,11 @@ public class Client2
         String new_file_name = getUniqueFileName(filename_download);
         String download_status = in.readLine();
         System.out.println(download_status);
-        if (download_status.contains("Login"))
+        if (download_status.contains("Login") || download_status.contains("not found"))
         {
             return;
         }
-        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT);
-             BufferedInputStream in = new BufferedInputStream(dataSocket.getInputStream());
-             BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(new_file_name)))
+        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT); BufferedInputStream in = new BufferedInputStream(dataSocket.getInputStream()); BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(new_file_name)))
         {
             byte[] buffer = new byte[4096];
             int bytesRead;
@@ -209,7 +283,7 @@ public class Client2
             }
             out.flush();
             dataSocket.close();
-            System.out.println("Downloaded successful!");
+            System.out.println("Downloaded successful!\nLocation: '" + new_file_name + "'");
         } catch (IOException e)
         {
             System.out.println(e.getMessage());
@@ -245,17 +319,14 @@ public class Client2
 
     private static void uploadFile(String raw_cmd) throws IOException
     {
+
         if (raw_cmd.length() == 2)
         {
             System.out.println("Usage: up <file-name>");
             return;
         }
         String filename = raw_cmd.substring(raw_cmd.indexOf(" ") + 1);
-        File uploadFile = new File(
-                DOWNLOAD_DIRECTORY +
-                        File.separator +
-                        filename
-        );
+        File uploadFile = new File(DOWNLOAD_DIRECTORY + File.separator + filename);
         if (!uploadFile.exists())
         {
             System.out.println(uploadFile.getName() + " not found!");
@@ -263,6 +334,7 @@ public class Client2
         }
         out.println(raw_cmd);
         String upload_status = in.readLine();
+
         System.out.println("\r" + upload_status);
         if (upload_status.contains("Login"))
         {
@@ -275,24 +347,28 @@ public class Client2
             download_dir.mkdirs();
         }
 
-        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT);
-             BufferedInputStream in = new BufferedInputStream(new FileInputStream(uploadFile));
-             BufferedOutputStream out = new BufferedOutputStream(dataSocket.getOutputStream()))
+        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT); BufferedInputStream in = new BufferedInputStream(new FileInputStream(uploadFile)); BufferedOutputStream out = new BufferedOutputStream(dataSocket.getOutputStream()))
         {
             byte[] buffer = new byte[4096];
             int bytesRead;
             while ((bytesRead = in.read(buffer)) != -1)
             {
-                out.write(buffer, 0, bytesRead);
+                synchronized (pauseLock)
+                {
+                    while (isPaused)
+                    {
+                        pauseLock.wait();
+                    }
+                    out.write(buffer, 0, bytesRead);
+                }
             }
             out.flush();
             dataSocket.close();
             System.out.println("FILE UPLOADED SUCCESSFUL!");
-        } catch (IOException e)
+        } catch (IOException | InterruptedException e)
         {
             System.out.println(e.getMessage());
         }
-
 
     }
 
@@ -360,17 +436,7 @@ public class Client2
             rePasswd = sc.nextLine();
         } while (!rePasswd.equals(passwd));
         Gson gson = new Gson();
-        User register_user = new User(
-                UUID.randomUUID().toString(),
-                fullname,
-                username,
-                email,
-                passwd,
-                LocalDateTime.now().toString(),
-                true,
-                false,
-                2
-        );
+        User register_user = new User(UUID.randomUUID().toString(), fullname, username, email, passwd, LocalDateTime.now().toString(), true, false, 2);
         out.println(gson.toJson(register_user));
         register_status = in.readLine();
         System.out.println(register_status);

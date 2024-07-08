@@ -2,19 +2,22 @@ package org.example;
 
 import org.example.Controller.FileController;
 import org.example.Model.User;
+import org.example.Model.File;
 
 import java.io.*;
 import java.net.Socket;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 public class DataThread extends Thread
 {
     Socket dataSocket;
-    File file;
+    java.io.File file;
     String command;
     User user_login;
 
-    public DataThread(Socket dataSocket, File file, String command, User user_login)
+    public DataThread(Socket dataSocket, java.io.File file, String command, User user_login)
     {
         this.dataSocket = dataSocket;
         this.file = file;
@@ -45,10 +48,17 @@ public class DataThread extends Thread
 
             while ((bytesRead = in.read(buffer)) != -1)
             {
-                out.write(buffer, 0, bytesRead);
+                synchronized (ControlThread.pauseLock)
+                {
+                    while (ControlThread.isPaused)
+                    {
+                        ControlThread.pauseLock.wait();
+                    }
+                    out.write(buffer, 0, bytesRead);
+                }
             }
             out.flush();
-        } catch (IOException e)
+        } catch (IOException | InterruptedException e)
         {
             System.out.println(e.getMessage());
         } finally
@@ -73,11 +83,21 @@ public class DataThread extends Thread
 
             while ((bytesRead = in.read(buffer)) != -1)
             {
+
                 out.write(buffer, 0, bytesRead);
             }
 
             out.flush();
-            FileController.uploadFile(user_login, file);
+            org.example.Model.File file_upload = new File(
+                    UUID.randomUUID().toString(),
+                    user_login.getId(),
+                    file.getName(),
+                    file.getAbsolutePath(),
+                    "unknown",
+                    LocalDateTime.now().toString(),
+                    String.valueOf(file.length())
+            );
+            FileController.uploadFile(user_login, file_upload);
         } catch (IOException | SQLException e)
         {
             System.out.println(e.getMessage());
