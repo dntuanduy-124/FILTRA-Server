@@ -23,7 +23,10 @@ public class ControlThread extends Thread
     int indexCommander;
     User user_login;
     String UPLOAD_DIRECTORY = "upload";
+    String WORKING_DIRECTORY = UPLOAD_DIRECTORY;
     final int DATA_PORT = 2000;
+    public static boolean isPaused = false;
+    public static final Object pauseLock = new Object();
 
     public ControlThread(Socket clientSocket) throws IOException
     {
@@ -48,7 +51,16 @@ public class ControlThread extends Thread
                 }
                 indexCommander = (raw_cmd + " ").indexOf(" ");
                 String commander = raw_cmd.substring(0, indexCommander).toUpperCase();
-                startingProgramByCommander(commander);
+                if (commander.equals("PD"))
+                {
+                    pauseClient();
+                } else if (commander.equals("RD"))
+                {
+                    resumeClient();
+                } else
+                {
+                    startingProgramByCommander(commander);
+                }
             }
         } catch (IOException | SQLException e)
         {
@@ -62,6 +74,23 @@ public class ControlThread extends Thread
             {
                 System.out.println(e.getMessage());
             }
+        }
+    }
+
+    private void pauseClient()
+    {
+        synchronized (pauseLock)
+        {
+            isPaused = true;
+        }
+    }
+
+    private void resumeClient()
+    {
+        synchronized (pauseLock)
+        {
+            isPaused = false;
+            pauseLock.notifyAll();
         }
     }
 
@@ -96,11 +125,47 @@ public class ControlThread extends Thread
             case "RM":
                 removeFileOrDirectory();
                 break;
+            case "CD":
+                moveToDirectory();
+                break;
             default:
                 System.out.println("Wrong command!");
                 break;
         }
     }
+
+    private void moveToDirectory() throws IOException
+    {
+        if (user_login == null)
+        {
+            out.println("Login first!");
+            return;
+        }
+        if (raw_cmd.length() == 2)
+        {
+            WORKING_DIRECTORY = UPLOAD_DIRECTORY + File.separator + user_login.getUsername();
+            out.println("You're in home");
+            return;
+        }
+        String destination = raw_cmd.substring(indexCommander + 1);
+        File newDir = new File(WORKING_DIRECTORY, destination).getCanonicalFile();
+        File userRootDir = new File(UPLOAD_DIRECTORY + File.separator + user_login.getUsername()).getCanonicalFile();
+        if (!newDir.getPath().startsWith(userRootDir.getPath()))
+        {
+            WORKING_DIRECTORY = UPLOAD_DIRECTORY + File.separator + user_login.getUsername();
+            out.println("You're in home");
+            return;
+        }
+        if (newDir.exists() && newDir.isDirectory())
+        {
+            WORKING_DIRECTORY = newDir.getPath();
+            out.println("You're in " + destination);
+        } else
+        {
+            out.println("Not a valid directory!");
+        }
+    }
+
 
     private void activateEmail() throws SQLException, IOException
     {
@@ -135,13 +200,7 @@ public class ControlThread extends Thread
             return;
         }
         String remove_path = raw_cmd.substring(indexCommander + 1);
-        File remove_file = new File(
-                UPLOAD_DIRECTORY +
-                        File.separator +
-                        user_login.getUsername() +
-                        File.separator +
-                        remove_path
-        );
+        File remove_file = new File(WORKING_DIRECTORY + File.separator + remove_path);
         if (!remove_file.exists())
         {
             out.println("'" + remove_file.getName() + "'" + " not found!");
@@ -165,9 +224,10 @@ public class ControlThread extends Thread
         }
         if (raw_cmd.length() == 2)
         {
-            File currentDir = new File(UPLOAD_DIRECTORY +
-                    File.separator +
-                    user_login.getUsername());
+//            File currentDir = new File(UPLOAD_DIRECTORY +
+//                    File.separator +
+//                    user_login.getUsername());
+            File currentDir = new File(WORKING_DIRECTORY);
             walk(currentDir, currentDir.getAbsolutePath().length());
         } else
         {
@@ -178,10 +238,11 @@ public class ControlThread extends Thread
                 return;
             }
 
-            directory_path = UPLOAD_DIRECTORY +
-                    File.separator +
-                    user_login.getUsername() +
-                    File.separator + directory_path;
+//            directory_path = UPLOAD_DIRECTORY +
+//                    File.separator +
+//                    user_login.getUsername() +
+//                    File.separator + directory_path;
+            directory_path = WORKING_DIRECTORY + File.separator + directory_path;
             File folder = new File(directory_path);
             if (folder.exists() && folder.isDirectory())
             {
@@ -224,13 +285,7 @@ public class ControlThread extends Thread
             return;
         }
         String file_download_name = raw_cmd.substring(indexCommander + 1);
-        File file_download = new File(
-                UPLOAD_DIRECTORY +
-                        File.separator +
-                        user_login.getUsername() +
-                        File.separator +
-                        file_download_name
-        );
+        File file_download = new File(WORKING_DIRECTORY + File.separator + file_download_name);
         if (!file_download.exists())
         {
             out.println("'" + file_download.getName() + "'" + " not found!");
@@ -251,9 +306,10 @@ public class ControlThread extends Thread
             out.println("Login first!");
             return;
         }
-        File upload_dir = new File(UPLOAD_DIRECTORY +
-                File.separator +
-                user_login.getUsername());
+//        File upload_dir = new File(UPLOAD_DIRECTORY +
+//                File.separator +
+//                user_login.getUsername());
+        File upload_dir = new File(WORKING_DIRECTORY);
         if (!upload_dir.exists())
         {
             upload_dir.mkdirs();
@@ -315,6 +371,7 @@ public class ControlThread extends Thread
         }
         out.println("See you again " + user_login.getUsername() + "!");
         user_login = null;
+        WORKING_DIRECTORY = UPLOAD_DIRECTORY;
     }
 
     private void register() throws IOException, SQLException
@@ -356,7 +413,9 @@ public class ControlThread extends Thread
 
     private String getUniqueFileName(String filename)
     {
-        File file = new File(UPLOAD_DIRECTORY + File.separator + user_login.getUsername() + File.separator + filename);
+//        File file = new File(UPLOAD_DIRECTORY + File.separator + user_login.getUsername() + File.separator + filename);
+        File file = new File(WORKING_DIRECTORY + File.separator + filename);
+
         if (!file.exists() && !file.isDirectory())
         {
             return file.getAbsolutePath();
@@ -375,7 +434,8 @@ public class ControlThread extends Thread
         while (file.exists() || file.isDirectory())
         {
             String newFileName = name + "(" + count + ")" + extension;
-            file = new File(UPLOAD_DIRECTORY + File.separator + user_login.getUsername() + File.separator + newFileName);
+//            file = new File(UPLOAD_DIRECTORY + File.separator + user_login.getUsername() + File.separator + newFileName);
+            file = new File(WORKING_DIRECTORY + File.separator + newFileName);
             count++;
         }
         return file.getAbsolutePath();
@@ -396,6 +456,7 @@ public class ControlThread extends Thread
         {
             Gson gson = new Gson();
             out.println(gson.toJson(user_login));
+            WORKING_DIRECTORY += File.separator + user_login.getUsername();
         } else
         {
             out.println("Login failed!");
