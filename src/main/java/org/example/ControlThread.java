@@ -3,7 +3,10 @@ package org.example;
 import com.google.gson.Gson;
 import org.example.Controller.AccountController;
 import org.example.Controller.DirectoryController;
+import org.example.Controller.FileController;
+import org.example.Controller.PermissionController;
 import org.example.Model.Directory;
+import org.example.Model.Permission;
 import org.example.Model.User;
 
 import java.io.*;
@@ -11,6 +14,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.UUID;
 
@@ -22,8 +26,8 @@ public class ControlThread extends Thread
     String raw_cmd;
     int indexCommander;
     User user_login;
-    String UPLOAD_DIRECTORY = "upload";
-    String WORKING_DIRECTORY = UPLOAD_DIRECTORY;
+    static String UPLOAD_DIRECTORY = "upload";
+    public static String WORKING_DIRECTORY = UPLOAD_DIRECTORY;
     final int DATA_PORT = 2000;
     public static boolean isPaused = false;
     public static final Object pauseLock = new Object();
@@ -97,6 +101,12 @@ public class ControlThread extends Thread
             case "GET":
                 downloadFile();
                 break;
+            case "SHR":
+                shareFile();
+                break;
+            case "LSHR":
+                listFileReceive();
+                break;
             case "RM":
                 removeFileOrDirectory();
                 break;
@@ -112,6 +122,46 @@ public class ControlThread extends Thread
             default:
                 System.out.println("Wrong command!");
                 break;
+        }
+    }
+
+    private void listFileReceive() throws SQLException
+    {
+        if (user_login == null)
+        {
+            out.println("Login first!");
+            return;
+        }
+        out.println("-- File received --");
+        Gson gson = new Gson();
+        ArrayList<org.example.Model.File> files_received = PermissionController.getAllFileReceived(user_login.getId());
+        String[] list_file_share = new String[files_received.size()];
+        for (int i = 0; i < list_file_share.length; i++)
+        {
+            list_file_share[i] = files_received.get(i).getFilename();
+        }
+        out.println(gson.toJson(list_file_share));
+    }
+
+    private void shareFile() throws SQLException
+    {
+        if (user_login == null)
+        {
+            out.println("Login first!");
+            return;
+        }
+        String raw_parameters = raw_cmd.substring(indexCommander + 1);
+        String[] share_parts = raw_parameters.split("-");
+        String email_user = share_parts[1].substring(share_parts[1].indexOf("e") + 2).trim();
+        String permission = share_parts[2].substring(share_parts[2].indexOf("p") + 2).trim();
+        String file_sharing = share_parts[3].substring(share_parts[3].indexOf("f") + 2).trim();
+        File file_shr = new File(WORKING_DIRECTORY + File.separator + file_sharing);
+        if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath()))
+        {
+            out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
+        } else
+        {
+            out.println("Sharing failed!");
         }
     }
 
@@ -163,7 +213,6 @@ public class ControlThread extends Thread
             out.println("Not a valid directory!");
         }
     }
-
 
     private void activateEmail() throws SQLException, IOException
     {
@@ -398,10 +447,8 @@ public class ControlThread extends Thread
         }
     }
 
-
     private String getUniqueFileName(String filename)
     {
-//        File file = new File(UPLOAD_DIRECTORY + File.separator + user_login.getUsername() + File.separator + filename);
         File file = new File(WORKING_DIRECTORY + File.separator + filename);
 
         if (!file.exists() && !file.isDirectory())
@@ -422,7 +469,6 @@ public class ControlThread extends Thread
         while (file.exists() || file.isDirectory())
         {
             String newFileName = name + "(" + count + ")" + extension;
-//            file = new File(UPLOAD_DIRECTORY + File.separator + user_login.getUsername() + File.separator + newFileName);
             file = new File(WORKING_DIRECTORY + File.separator + newFileName);
             count++;
         }
