@@ -267,7 +267,7 @@ public class Client1
         String filename_download = raw_cmd.substring(raw_cmd.indexOf(" ") + 1);
         String new_file_name = getUniqueFileName(filename_download);
         String download_status = in.readLine();
-        System.out.println(download_status);
+        System.out.print("\r" + download_status);
         if (download_status.contains("Login") || download_status.contains("not found"))
         {
             return;
@@ -282,7 +282,7 @@ public class Client1
             }
             out.flush();
             dataSocket.close();
-            System.out.println("Downloaded successful!\nLocation: '" + new_file_name + "'");
+            System.out.print("\rDownloaded successful!\nLocation: '" + new_file_name + "'\n> ");
         } catch (IOException e)
         {
             System.out.println(e.getMessage());
