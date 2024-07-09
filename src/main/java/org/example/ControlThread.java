@@ -51,16 +51,7 @@ public class ControlThread extends Thread
                 }
                 indexCommander = (raw_cmd + " ").indexOf(" ");
                 String commander = raw_cmd.substring(0, indexCommander).toUpperCase();
-                if (commander.equals("PD"))
-                {
-                    pauseClient();
-                } else if (commander.equals("RD"))
-                {
-                    resumeClient();
-                } else
-                {
-                    startingProgramByCommander(commander);
-                }
+                startingProgramByCommander(commander);
             }
         } catch (IOException | SQLException e)
         {
@@ -77,22 +68,6 @@ public class ControlThread extends Thread
         }
     }
 
-    private void pauseClient()
-    {
-        synchronized (pauseLock)
-        {
-            isPaused = true;
-        }
-    }
-
-    private void resumeClient()
-    {
-        synchronized (pauseLock)
-        {
-            isPaused = false;
-            pauseLock.notifyAll();
-        }
-    }
 
     private void startingProgramByCommander(String commander) throws SQLException, IOException
     {
@@ -128,9 +103,32 @@ public class ControlThread extends Thread
             case "CD":
                 moveToDirectory();
                 break;
+            case "PD":
+                pauseDownload();
+                break;
+            case "RD":
+                resumeDownload();
+                break;
             default:
                 System.out.println("Wrong command!");
                 break;
+        }
+    }
+
+    private void pauseDownload()
+    {
+        synchronized (pauseLock)
+        {
+            isPaused = true;
+        }
+    }
+
+    private void resumeDownload()
+    {
+        synchronized (pauseLock)
+        {
+            isPaused = false;
+            pauseLock.notifyAll();
         }
     }
 
@@ -224,9 +222,6 @@ public class ControlThread extends Thread
         }
         if (raw_cmd.length() == 2)
         {
-//            File currentDir = new File(UPLOAD_DIRECTORY +
-//                    File.separator +
-//                    user_login.getUsername());
             File currentDir = new File(WORKING_DIRECTORY);
             walk(currentDir, currentDir.getAbsolutePath().length());
         } else
@@ -238,10 +233,6 @@ public class ControlThread extends Thread
                 return;
             }
 
-//            directory_path = UPLOAD_DIRECTORY +
-//                    File.separator +
-//                    user_login.getUsername() +
-//                    File.separator + directory_path;
             directory_path = WORKING_DIRECTORY + File.separator + directory_path;
             File folder = new File(directory_path);
             if (folder.exists() && folder.isDirectory())
@@ -292,7 +283,7 @@ public class ControlThread extends Thread
             return;
         }
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
-        out.println("READY");
+        out.println("Downloading ... > ");
         Socket clientDataSocket = serverDataSocket.accept();
         Thread dataThread = new DataThread(clientDataSocket, file_download, "GET", user_login);
         dataThread.start();
@@ -306,9 +297,6 @@ public class ControlThread extends Thread
             out.println("Login first!");
             return;
         }
-//        File upload_dir = new File(UPLOAD_DIRECTORY +
-//                File.separator +
-//                user_login.getUsername());
         File upload_dir = new File(WORKING_DIRECTORY);
         if (!upload_dir.exists())
         {
@@ -318,7 +306,7 @@ public class ControlThread extends Thread
         String new_file_name = getUniqueFileName(file_upload_name);
         File file_upload = new File(new_file_name);
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
-        out.println("READY");
+        out.println("Uploading ... > ");
         Socket clientDataSocket = serverDataSocket.accept();
         Thread dataThread = new DataThread(clientDataSocket, file_upload, "UP", user_login);
         dataThread.start();
