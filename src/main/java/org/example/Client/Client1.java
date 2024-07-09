@@ -104,8 +104,6 @@ public class Client1
                 makeDirectory(raw_command);
                 break;
             case "UP":
-                System.out.println("Type 'pu' to pause upload");
-                System.out.println("Type 'ru' to resume upload");
                 new Thread(() ->
                 {
                     try
@@ -249,6 +247,7 @@ public class Client1
 
     private static void quitServer() throws IOException
     {
+        System.out.println("BYE");
         controlSocket.close();
     }
 
@@ -332,10 +331,12 @@ public class Client1
             System.out.println(uploadFile.getName() + " not found!");
             return;
         }
+        System.out.println("Type 'pu' to pause upload");
+        System.out.println("Type 'ru' to resume upload");
         out.println(raw_cmd);
         String upload_status = in.readLine();
 
-        System.out.println("\r" + upload_status);
+        System.out.print("\r" + upload_status);
         if (upload_status.contains("Login"))
         {
             return;
@@ -364,7 +365,7 @@ public class Client1
             }
             out.flush();
             dataSocket.close();
-            System.out.println("FILE UPLOADED SUCCESSFUL!");
+            System.out.print("\rUploaded successful!\n> ");
         } catch (IOException | InterruptedException e)
         {
             System.out.println(e.getMessage());
