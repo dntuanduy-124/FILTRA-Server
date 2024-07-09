@@ -94,6 +94,12 @@ public class Client2
             case "QUIT":
                 quitServer();
                 break;
+            case "LSHR":
+                listFileReceived();
+                break;
+            case "SHR":
+                shareFile(raw_command);
+                break;
             case "CD":
                 moveToDirectory(raw_command);
                 break;
@@ -102,6 +108,9 @@ public class Client2
                 break;
             case "MKDIR":
                 makeDirectory(raw_command);
+                break;
+            case "RM":
+                removeFileOrDirectory(raw_command);
                 break;
             case "UP":
                 new Thread(() ->
@@ -129,9 +138,6 @@ public class Client2
                     }
                 }).start();
                 break;
-            case "RM":
-                removeFileOrDirectory(raw_command);
-                break;
             default:
                 System.out.println("Type 'help'");
                 break;
@@ -150,6 +156,30 @@ public class Client2
         System.out.println("out - logout");
         System.out.println("quit - quit from the server");
         System.out.println("help - see this help");
+    }
+
+    private static void listFileReceived() throws IOException
+    {
+        out.println(commander);
+        String status = in.readLine();
+        System.out.println(status);
+        if (status.contains("Login"))
+        {
+            return;
+        }
+        Gson gson = new Gson();
+        String[] list_file = gson.fromJson(in.readLine(), String[].class);
+        for (String file : list_file)
+        {
+            System.out.println(file);
+        }
+    }
+
+    private static void shareFile(String raw_cmd) throws IOException
+    {
+        out.println(raw_cmd);
+        String sharing_status = in.readLine();
+        System.out.println(sharing_status);
     }
 
     private static void pauseDownload()

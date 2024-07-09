@@ -86,7 +86,7 @@ public class AccountController
     {
         User user_login = null;
         String login_query = "SELECT * FROM users WHERE username=? AND password=?";
-        PreparedStatement ps = null;
+        PreparedStatement ps;
         try
         {
             ps = connection.prepareStatement(login_query);
@@ -113,10 +113,8 @@ public class AccountController
             );
             return user_login;
         }
-
         System.out.println("LOGIN FAILED!");
         return null;
-
     }
 
     public static void sentEmail(String email_user, String otp) throws SQLException
@@ -229,5 +227,38 @@ public class AccountController
         }
     }
 
-
+    public static User findUserByEmail(String email) throws SQLException
+    {
+        User user = null;
+        String login_query = "SELECT * FROM users WHERE email = ?";
+        PreparedStatement ps = null;
+        try
+        {
+            ps = connection.prepareStatement(login_query);
+            ps.setString(1, email);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        ResultSet rs = ps.executeQuery();
+        if (rs.next())
+        {
+            System.out.println("Founded user: " + rs.getString("username"));
+            user = new User(
+                    rs.getString("id"),
+                    rs.getString("fullname"),
+                    rs.getString("username"),
+                    rs.getString("email"),
+                    rs.getString("password"),
+                    rs.getString("date_created"),
+                    rs.getBoolean("anonymous"),
+                    rs.getBoolean("activated"),
+                    rs.getInt("id_role")
+            );
+            return user;
+        }
+        System.out.println("Can not find " + email);
+        return null;
+    }
 }
+

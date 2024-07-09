@@ -1,10 +1,12 @@
 package org.example.Controller;
 
+import org.example.Model.File;
 import org.example.Model.User;
 
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import static org.example.DB.DatabaseConnector.connectToDatabase;
@@ -23,7 +25,6 @@ public class FileController
             throw new RuntimeException(e);
         }
     }
-
     public static void uploadFile(User user_upload, org.example.Model.File upload_file) throws IOException, SQLException
     {
         String query = "INSERT INTO files (id_file, id_user_upload, filename, filepath, filetype, upload_date, filesize) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -52,5 +53,35 @@ public class FileController
         }
     }
 
+    public static File findFileByPath(String path_file) throws SQLException
+    {
+        File file = null;
+        String login_query = "SELECT * FROM files WHERE filepath = ?";
+        PreparedStatement ps = null;
+        try
+        {
+            ps = connection.prepareStatement(login_query);
+            ps.setString(1, path_file);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        ResultSet rs = ps.executeQuery();
+        if (rs.next())
+        {
+            file = new File(
+                    rs.getString("id_file"),
+                    rs.getString("id_user_upload"),
+                    rs.getString("filename"),
+                    rs.getString("filepath"),
+                    rs.getString("filetype"),
+                    rs.getString("upload_date"),
+                    rs.getString("filesize")
+            );
+            return file;
+        }
+        System.out.println("Can not find " + path_file);
+        return null;
+    }
 
 }
