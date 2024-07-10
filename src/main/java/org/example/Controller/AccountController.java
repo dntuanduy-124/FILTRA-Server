@@ -11,7 +11,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
-import java.util.Random;
 
 import static org.example.DB.DatabaseConnector.connectToDatabase;
 
@@ -62,8 +61,6 @@ public class AccountController
         return false;
     }
 
-
-    //Validate username và email
     public static boolean isUserExist(String username, String email) throws SQLException
     {
         String query = "SELECT * FROM users WHERE username = ? OR email = ?";
@@ -84,7 +81,7 @@ public class AccountController
 
     public static User loginUser(String username, String passwd) throws SQLException
     {
-        User user_login = null;
+        User user_login;
         String login_query = "SELECT * FROM users WHERE username=? AND password=?";
         PreparedStatement ps;
         try
@@ -99,7 +96,6 @@ public class AccountController
         ResultSet rs = ps.executeQuery();
         if (rs.next())
         {
-            System.out.println("LOGIN SUCCESS! USER: " + rs.getString("username"));
             user_login = new User(
                     rs.getString("id"),
                     rs.getString("fullname"),
@@ -113,11 +109,10 @@ public class AccountController
             );
             return user_login;
         }
-        System.out.println("LOGIN FAILED!");
         return null;
     }
 
-    public static void sentEmail(String email_user, String otp) throws SQLException
+    public static void sentEmail(String email_user, String otp)
     {
         String HOST_NAME = "smtp.gmail.com";
         String SSL_PORT = "587"; //  "587" for TSL
@@ -126,23 +121,17 @@ public class AccountController
 
         //(send email)
         //cài đặt properties để connect
-        String recipient = email_user; // Địa chỉ email người nhận
-        String sender = APP_EMAIL; // Địa chỉ email của bạn
-
-
         // Thiết lập properties cho SMTP server
         Properties properties = System.getProperties();
         properties.put("mail.smtp.host", HOST_NAME);
         properties.put("mail.smtp.port", SSL_PORT);
         properties.put("mail.smtp.auth", "true");
         properties.put("mail.smtp.starttls.enable", "true");
-//        properties.put("mail.smtp.socketFactory.port", SSL_PORT);
         properties.setProperty("mail.smtp.ssl.protocols", "TLSv1.2");
 
         properties.put("mail.smtp.ssl.trust", HOST_NAME);
 
         // Xác thực tài khoản email và password
-
         Session session = Session.getInstance(properties,
                 new javax.mail.Authenticator()
                 {
@@ -156,13 +145,13 @@ public class AccountController
         try
         {
             MimeMessage message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(sender));
-            message.addRecipient(Message.RecipientType.TO, new InternetAddress(recipient));
+            message.setFrom(new InternetAddress(APP_EMAIL));
+            message.addRecipient(Message.RecipientType.TO, new InternetAddress(email_user));
             message.setSubject("Your OTP Code");
             message.setText("Your OTP code is: " + otp);
             //Gửi email
             Transport.send(message);
-            System.out.println("Filtran-ftp was sent OTP to your email. Please check your mail");
+            System.out.println("Filtra-ftp was sent OTP to your email. Please check your mail");
 
         } catch (MessagingException mes)
         {
@@ -229,9 +218,9 @@ public class AccountController
 
     public static User findUserByEmail(String email) throws SQLException
     {
-        User user = null;
+        User user;
         String login_query = "SELECT * FROM users WHERE email = ?";
-        PreparedStatement ps = null;
+        PreparedStatement ps;
         try
         {
             ps = connection.prepareStatement(login_query);
@@ -259,6 +248,69 @@ public class AccountController
         }
         System.out.println("Can not find " + email);
         return null;
+    }
+
+    public static void showAllUser()
+    {
+        String query = "SELECT * FROM users";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next())
+            {
+                System.out.println(rs.getString("id") + "\t" +
+                        rs.getString("username") + "\t" +
+                        rs.getString("email") + "\t" +
+                        rs.getString("fullname"));
+            }
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void blockUserById(String id_user) throws SQLException
+    {
+        String query = "INSERT INTO block_users (id) VALUES (?)";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_user);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        int new_row_user = ps.executeUpdate();
+        if (new_row_user > 0)
+        {
+            System.out.println("Block user success!");
+        } else
+            System.out.println("Block user failed!");
+    }
+
+    public static boolean isUserBlocked(String id_user)
+    {
+        String query = "SELECT * FROM block_users WHERE id = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_user);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+            {
+                return true;
+            }
+
+        } catch (SQLException e)
+        {
+            System.out.println(e.getMessage());
+
+        }
+        return false;
     }
 }
 

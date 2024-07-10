@@ -25,6 +25,7 @@ public class FileController
             throw new RuntimeException(e);
         }
     }
+
     public static void uploadFile(User user_upload, org.example.Model.File upload_file) throws IOException, SQLException
     {
         String query = "INSERT INTO files (id_file, id_user_upload, filename, filepath, filetype, upload_date, filesize) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -55,9 +56,9 @@ public class FileController
 
     public static File findFileByPath(String path_file) throws SQLException
     {
-        File file = null;
+        File file;
         String login_query = "SELECT * FROM files WHERE filepath = ?";
-        PreparedStatement ps = null;
+        PreparedStatement ps;
         try
         {
             ps = connection.prepareStatement(login_query);
@@ -84,4 +85,34 @@ public class FileController
         return null;
     }
 
+    public static User getUserUploadByFileId(String id_file)
+    {
+        User user_upload = null;
+        String query = "SELECT u.* FROM users u, files f WHERE u.id = f.id_user_upload AND f.id_file = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_file);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+            {
+                user_upload = new User(
+                        rs.getString("id"),
+                        rs.getString("username"),
+                        rs.getString("password"),
+                        rs.getString("email"),
+                        rs.getString("fullname"),
+                        rs.getString("date_created"),
+                        rs.getBoolean("anonymous"),
+                        rs.getBoolean("activated"),
+                        rs.getInt("id_role")
+                );
+            }
+            return user_upload;
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
 }

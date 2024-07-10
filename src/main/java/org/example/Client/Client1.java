@@ -48,7 +48,7 @@ public class Client1
             String raw_cmd = sc.nextLine().trim();
             sendCommandToServer(raw_cmd);
             System.out.println("-----------------------------------------");
-            if (commander.equals("QUIT"))
+            if (commander.equals("QUIT") || controlSocket.isClosed())
             {
                 return;
             }
@@ -95,7 +95,7 @@ public class Client1
                 quitServer();
                 break;
             case "LSHR":
-                listFileReceived();
+                listFileAndDirectoryReceived();
                 break;
             case "SHR":
                 shareFile(raw_command);
@@ -158,7 +158,7 @@ public class Client1
         System.out.println("help - see this help");
     }
 
-    private static void listFileReceived() throws IOException
+    private static void listFileAndDirectoryReceived() throws IOException
     {
         out.println(commander);
         String status = in.readLine();
@@ -169,6 +169,11 @@ public class Client1
         }
         Gson gson = new Gson();
         String[] list_file = gson.fromJson(in.readLine(), String[].class);
+        String[] list_dir = gson.fromJson(in.readLine(), String[].class);
+        for (String dir : list_dir)
+        {
+            System.out.println(dir);
+        }
         for (String file : list_file)
         {
             System.out.println(file);
@@ -297,7 +302,7 @@ public class Client1
         String filename_download = raw_cmd.substring(raw_cmd.indexOf(" ") + 1);
         String new_file_name = getUniqueFileName(filename_download);
         String download_status = in.readLine();
-        System.out.println(download_status);
+        System.out.println("\r" + download_status + "\n\r> ");
         if (download_status.contains("Login") || download_status.contains("not found"))
         {
             return;
@@ -361,12 +366,10 @@ public class Client1
             System.out.println(uploadFile.getName() + " not found!");
             return;
         }
-        System.out.println("Type 'pu' to pause upload");
-        System.out.println("Type 'ru' to resume upload");
+        System.out.print("\rType 'pu' to pause upload\nType 'ru' to resume upload");
         out.println(raw_cmd);
         String upload_status = in.readLine();
-
-        System.out.print("\r" + upload_status);
+        System.out.print("\r" + upload_status + "\n\r>");
         if (upload_status.contains("Login"))
         {
             return;

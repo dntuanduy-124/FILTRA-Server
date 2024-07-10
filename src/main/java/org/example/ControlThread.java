@@ -6,7 +6,6 @@ import org.example.Controller.DirectoryController;
 import org.example.Controller.FileController;
 import org.example.Controller.PermissionController;
 import org.example.Model.Directory;
-import org.example.Model.Permission;
 import org.example.Model.User;
 
 import java.io.*;
@@ -27,7 +26,7 @@ public class ControlThread extends Thread
     int indexCommander;
     User user_login;
     static String UPLOAD_DIRECTORY = "upload";
-    public static String WORKING_DIRECTORY = UPLOAD_DIRECTORY;
+    public String WORKING_DIRECTORY = UPLOAD_DIRECTORY;
     final int DATA_PORT = 2000;
     public static boolean isPaused = false;
     public static final Object pauseLock = new Object();
@@ -105,7 +104,7 @@ public class ControlThread extends Thread
                 shareFile();
                 break;
             case "LSHR":
-                listFileReceive();
+                listFileAndDirectoryReceived();
                 break;
             case "RM":
                 removeFileOrDirectory();
@@ -125,22 +124,31 @@ public class ControlThread extends Thread
         }
     }
 
-    private void listFileReceive() throws SQLException
+    private void listFileAndDirectoryReceived() throws SQLException
     {
         if (user_login == null)
         {
             out.println("Login first!");
             return;
         }
-        out.println("-- File received --");
+        out.println("-- Received --");
         Gson gson = new Gson();
         ArrayList<org.example.Model.File> files_received = PermissionController.getAllFileReceived(user_login.getId());
+        ArrayList<Directory> directories_received = PermissionController.getAllDirectoryReceived(user_login.getId());
         String[] list_file_share = new String[files_received.size()];
+        String[] list_dir_share = new String[directories_received.size()];
         for (int i = 0; i < list_file_share.length; i++)
         {
-            list_file_share[i] = files_received.get(i).getFilename();
+            User user_shared = FileController.getUserUploadByFileId(files_received.get(0).getId_file());
+            list_file_share[i] = "F:\t" + files_received.get(i).getFilename() + "\tFROM: " + user_shared.getEmail();
+        }
+        for (int i = 0; i < list_dir_share.length; i++)
+        {
+            User user_shared = DirectoryController.getUserUploadByDirectoryId(directories_received.get(0).getId_directory());
+            list_dir_share[i] = "D:\t" + directories_received.get(i).getName_directory() + "\tFROM: " + user_shared.getEmail();
         }
         out.println(gson.toJson(list_file_share));
+        out.println(gson.toJson(list_dir_share));
     }
 
     private void shareFile() throws SQLException
@@ -150,19 +158,49 @@ public class ControlThread extends Thread
             out.println("Login first!");
             return;
         }
+        if (!(raw_cmd.contains("-e") && raw_cmd.contains("-p") && (raw_cmd.contains("-f") || raw_cmd.contains("-d"))))
+        {
+            out.println("Usage: shr -e <email-receive> -p <WRITE|READ|FULL> -f|-d <file|directory-name>");
+            return;
+        }
         String raw_parameters = raw_cmd.substring(indexCommander + 1);
         String[] share_parts = raw_parameters.split("-");
         String email_user = share_parts[1].substring(share_parts[1].indexOf("e") + 2).trim();
         String permission = share_parts[2].substring(share_parts[2].indexOf("p") + 2).trim();
-        String file_sharing = share_parts[3].substring(share_parts[3].indexOf("f") + 2).trim();
-        File file_shr = new File(WORKING_DIRECTORY + File.separator + file_sharing);
-        if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath()))
+        String file_sharing = "";
+        if (share_parts[3].charAt(0) == 'f')
         {
-            out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
-        } else
+            file_sharing = share_parts[3].substring(share_parts[3].indexOf("f") + 2).trim();
+        } else if (share_parts[3].charAt(0) == 'd')
         {
-            out.println("Sharing failed!");
+            file_sharing = share_parts[3].substring(share_parts[3].indexOf("d") + 2).trim();
         }
+        File file_shr = new File(WORKING_DIRECTORY + File.separator + file_sharing);
+        if (email_user.isEmpty() || permission.isEmpty() || file_sharing.isEmpty())
+        {
+            out.println("Usage: shr -e <email-receive> -p <WRITE|READ|FULL> -f|-d <file|directory-name>");
+            return;
+        }
+        if (file_shr.isFile())
+        {
+            if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath(), "f"))
+            {
+                out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
+            } else
+            {
+                out.println("Sharing failed!");
+            }
+        } else if (file_shr.isDirectory())
+        {
+            if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath(), "d"))
+            {
+                out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
+            } else
+            {
+                out.println("Sharing failed!");
+            }
+        }
+
     }
 
     private void pauseDownload()
@@ -355,7 +393,7 @@ public class ControlThread extends Thread
         String new_file_name = getUniqueFileName(file_upload_name);
         File file_upload = new File(new_file_name);
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
-        out.println("Uploading ... > ");
+        out.println("Uploading ...");
         Socket clientDataSocket = serverDataSocket.accept();
         Thread dataThread = new DataThread(clientDataSocket, file_upload, "UP", user_login);
         dataThread.start();
@@ -490,7 +528,7 @@ public class ControlThread extends Thread
         {
             Gson gson = new Gson();
             out.println(gson.toJson(user_login));
-            WORKING_DIRECTORY += File.separator + user_login.getUsername();
+            WORKING_DIRECTORY = UPLOAD_DIRECTORY + File.separator + user_login.getUsername();
         } else
         {
             out.println("Login failed!");

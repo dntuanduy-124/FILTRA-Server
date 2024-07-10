@@ -95,7 +95,7 @@ public class Client2
                 quitServer();
                 break;
             case "LSHR":
-                listFileReceived();
+                listFileAndDirectoryReceived();
                 break;
             case "SHR":
                 shareFile(raw_command);
@@ -158,7 +158,7 @@ public class Client2
         System.out.println("help - see this help");
     }
 
-    private static void listFileReceived() throws IOException
+    private static void listFileAndDirectoryReceived() throws IOException
     {
         out.println(commander);
         String status = in.readLine();
@@ -169,6 +169,11 @@ public class Client2
         }
         Gson gson = new Gson();
         String[] list_file = gson.fromJson(in.readLine(), String[].class);
+        String[] list_dir = gson.fromJson(in.readLine(), String[].class);
+        for (String dir : list_dir)
+        {
+            System.out.println(dir);
+        }
         for (String file : list_file)
         {
             System.out.println(file);
@@ -361,8 +366,7 @@ public class Client2
             System.out.println(uploadFile.getName() + " not found!");
             return;
         }
-        System.out.println("Type 'pu' to pause upload");
-        System.out.println("Type 'ru' to resume upload");
+        System.out.print("\rType 'pu' to pause upload\nType 'ru' to resume upload");
         out.println(raw_cmd);
         String upload_status = in.readLine();
 
