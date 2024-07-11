@@ -317,6 +317,7 @@ public class Client1
         String download_status = in.readLine();
         System.out.print("\rType 'pd' to pause download\nType 'rd' to resume download\n");
         System.out.print("\r" + download_status + "\n\r> ");
+
         if (download_status.contains("Login") || download_status.contains("not found"))
         {
             return;
