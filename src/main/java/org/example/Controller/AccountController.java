@@ -10,13 +10,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Properties;
-import java.util.Random;
 
 import static org.example.DB.DatabaseConnector.connectToDatabase;
 
 public class AccountController
 {
+    private static final long DEFAULT_MAX_SIZE = (long) (5 * Math.pow(1024, 3));
     static Connection connection;
 
     static
@@ -33,7 +34,7 @@ public class AccountController
 
     public static boolean createUser(User new_user) throws SQLException
     {
-        String register_query = "INSERT INTO users (id, username, password, email, fullname, date_created, anonymous, activated, id_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String register_query = "INSERT INTO users (id, username, password, email, fullname, date_created, anonymous, activated, max_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         PreparedStatement ps;
         try
         {
@@ -46,7 +47,7 @@ public class AccountController
             ps.setString(6, new_user.getDate_created());
             ps.setBoolean(7, new_user.isAnonymous());
             ps.setBoolean(8, new_user.isActivated());
-            ps.setInt(9, new_user.getId_role());
+            ps.setLong(9, DEFAULT_MAX_SIZE);
 
         } catch (SQLException e)
         {
@@ -55,15 +56,13 @@ public class AccountController
         int new_row_user = ps.executeUpdate();
         if (new_row_user > 0)
         {
-            System.out.println("REGISTER SUCCESS!");
+//            System.out.println("REGISTER SUCCESS!");
             return true;
         }
-        System.out.println("REGISTER FAILED!");
+//        System.out.println("REGISTER FAILED!");
         return false;
     }
 
-
-    //Validate username và email
     public static boolean isUserExist(String username, String email) throws SQLException
     {
         String query = "SELECT * FROM users WHERE username = ? OR email = ?";
@@ -84,7 +83,7 @@ public class AccountController
 
     public static User loginUser(String username, String passwd) throws SQLException
     {
-        User user_login = null;
+        User user_login;
         String login_query = "SELECT * FROM users WHERE username=? AND password=?";
         PreparedStatement ps;
         try
@@ -99,7 +98,6 @@ public class AccountController
         ResultSet rs = ps.executeQuery();
         if (rs.next())
         {
-            System.out.println("LOGIN SUCCESS! USER: " + rs.getString("username"));
             user_login = new User(
                     rs.getString("id"),
                     rs.getString("fullname"),
@@ -109,15 +107,14 @@ public class AccountController
                     rs.getString("date_created"),
                     rs.getBoolean("anonymous"),
                     rs.getBoolean("activated"),
-                    rs.getInt("id_role")
+                    rs.getLong("max_size")
             );
             return user_login;
         }
-        System.out.println("LOGIN FAILED!");
         return null;
     }
 
-    public static void sentEmail(String email_user, String otp) throws SQLException
+    public static void sentEmail(String email_user, String otp)
     {
         String HOST_NAME = "smtp.gmail.com";
         String SSL_PORT = "587"; //  "587" for TSL
@@ -126,23 +123,17 @@ public class AccountController
 
         //(send email)
         //cài đặt properties để connect
-        String recipient = email_user; // Địa chỉ email người nhận
-        String sender = APP_EMAIL; // Địa chỉ email của bạn
-
-
         // Thiết lập properties cho SMTP server
         Properties properties = System.getProperties();
         properties.put("mail.smtp.host", HOST_NAME);
         properties.put("mail.smtp.port", SSL_PORT);
         properties.put("mail.smtp.auth", "true");
         properties.put("mail.smtp.starttls.enable", "true");
-//        properties.put("mail.smtp.socketFactory.port", SSL_PORT);
         properties.setProperty("mail.smtp.ssl.protocols", "TLSv1.2");
 
         properties.put("mail.smtp.ssl.trust", HOST_NAME);
 
         // Xác thực tài khoản email và password
-
         Session session = Session.getInstance(properties,
                 new javax.mail.Authenticator()
                 {
@@ -156,17 +147,17 @@ public class AccountController
         try
         {
             MimeMessage message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(sender));
-            message.addRecipient(Message.RecipientType.TO, new InternetAddress(recipient));
+            message.setFrom(new InternetAddress(APP_EMAIL));
+            message.addRecipient(Message.RecipientType.TO, new InternetAddress(email_user));
             message.setSubject("Your OTP Code");
             message.setText("Your OTP code is: " + otp);
             //Gửi email
             Transport.send(message);
-            System.out.println("Filtran-ftp was sent OTP to your email. Please check your mail");
+//            System.out.println("Filtra-ftp had sent OTP to your email. Please check your mail");
 
         } catch (MessagingException mes)
         {
-            System.out.println("Failed to send OTP email. Error: " + mes.getMessage());
+//            System.out.println("Failed to send OTP email. Error: " + mes.getMessage());
         }
 
     }
@@ -208,16 +199,16 @@ public class AccountController
                         boolean activated = rs.getBoolean("activated");
                         if (activated)
                         {
-                            System.out.println("User is Activated");
+//                            System.out.println("User is Activated");
                             return true;
                         } else
                         {
-                            System.out.println("User is not Activated");
+//                            System.out.println("User is not Activated");
                             return false;
                         }
                     } else
                     {
-                        System.out.println("Email not found");
+//                        System.out.println("Email not found");
                         return false;
                     }
                 }
@@ -229,9 +220,9 @@ public class AccountController
 
     public static User findUserByEmail(String email) throws SQLException
     {
-        User user = null;
+        User user;
         String login_query = "SELECT * FROM users WHERE email = ?";
-        PreparedStatement ps = null;
+        PreparedStatement ps;
         try
         {
             ps = connection.prepareStatement(login_query);
@@ -243,7 +234,7 @@ public class AccountController
         ResultSet rs = ps.executeQuery();
         if (rs.next())
         {
-            System.out.println("Founded user: " + rs.getString("username"));
+//            System.out.println("Founded user: " + rs.getString("username"));
             user = new User(
                     rs.getString("id"),
                     rs.getString("fullname"),
@@ -253,11 +244,142 @@ public class AccountController
                     rs.getString("date_created"),
                     rs.getBoolean("anonymous"),
                     rs.getBoolean("activated"),
-                    rs.getInt("id_role")
+                    rs.getLong("max_size")
             );
             return user;
         }
         System.out.println("Can not find " + email);
+        return null;
+    }
+
+    public static void showAllUser()
+    {
+        String query = "SELECT * FROM users";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next())
+            {
+                System.out.println(rs.getString("id") + "\t" +
+                        rs.getString("username") + "\t" +
+                        rs.getString("email") + "\t" +
+                        rs.getString("fullname"));
+            }
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void blockUserById(String id_user) throws SQLException
+    {
+        String query = "INSERT INTO block_users (id) VALUES (?)";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_user);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        int new_row_user = ps.executeUpdate();
+        if (new_row_user > 0)
+        {
+            System.out.println("Block user success!");
+        } else
+            System.out.println("Block user failed!");
+    }
+
+    public static void unblockUserById(String id_user)
+    {
+        String query = "DELETE FROM block_users WHERE (`id` = ?)";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_user);
+            ps.executeUpdate();
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public static ArrayList<String> getBlockedUsers()
+    {
+        ArrayList<String> id_users = new ArrayList<>();
+        String query = "SELECT * FROM block_users";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next())
+            {
+                id_users.add(rs.getString("id"));
+            }
+            return id_users;
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static boolean isUserBlocked(String id_user)
+    {
+        String query = "SELECT * FROM block_users WHERE id = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_user);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+            {
+                return true;
+            }
+
+        } catch (SQLException e)
+        {
+            System.out.println(e.getMessage());
+
+        }
+        return false;
+    }
+
+    public static User getUserById(String id) throws SQLException
+    {
+        User user;
+        String query = "SELECT * FROM users WHERE id = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        ResultSet rs = ps.executeQuery();
+        if (rs.next())
+        {
+            user = new User(
+                    rs.getString("id"),
+                    rs.getString("fullname"),
+                    rs.getString("username"),
+                    rs.getString("email"),
+                    rs.getString("password"),
+                    rs.getString("date_created"),
+                    rs.getBoolean("anonymous"),
+                    rs.getBoolean("activated"),
+                    rs.getLong("max_size")
+            );
+            return user;
+        }
         return null;
     }
 }
