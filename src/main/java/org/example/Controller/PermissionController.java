@@ -89,7 +89,6 @@ public class PermissionController
         return dir_receives;
     }
 
-
     public static boolean sharingWithPermission(String email, String permission, String file_path, String type) throws SQLException
     {
         boolean write_permit = false;
@@ -154,10 +153,10 @@ public class PermissionController
             int new_permission = ps.executeUpdate();
             if (new_permission > 0)
             {
-                System.out.println("Set permission success!");
+//                System.out.println("Set permission success!");
                 return true;
             }
-            System.out.println("Failed to set permission!");
+//            System.out.println("Failed to set permission!");
             return false;
         }
         return false;

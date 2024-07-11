@@ -27,6 +27,7 @@ public class ControlThread extends Thread
     User user_login;
     static String UPLOAD_DIRECTORY = "upload";
     public String WORKING_DIRECTORY = UPLOAD_DIRECTORY;
+    public String USER_UPLOAD_DIRECTORY = UPLOAD_DIRECTORY;
     final int DATA_PORT = 2000;
     public static boolean isPaused = false;
     public static final Object pauseLock = new Object();
@@ -35,7 +36,7 @@ public class ControlThread extends Thread
     {
         this.clientSocket = clientSocket;
         in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        out = new PrintWriter(clientSocket.getOutputStream(), true); // Changed this line
+        out = new PrintWriter(clientSocket.getOutputStream(), true);
     }
 
     @Override
@@ -49,7 +50,6 @@ public class ControlThread extends Thread
                 if (raw_cmd == null)
                 {
                     clientSocket.close();
-                    System.out.println("Client disconnected");
                     break;
                 }
                 indexCommander = (raw_cmd + " ").indexOf(" ");
@@ -286,6 +286,7 @@ public class ControlThread extends Thread
         }
         String remove_path = raw_cmd.substring(indexCommander + 1);
         File remove_file = new File(WORKING_DIRECTORY + File.separator + remove_path);
+
         if (!remove_file.exists())
         {
             out.println("'" + remove_file.getName() + "'" + " not found!");
@@ -293,6 +294,13 @@ public class ControlThread extends Thread
         }
         if (remove_file.delete())
         {
+            if (remove_file.isFile())
+            {
+                FileController.removeFile(remove_file);
+            } else
+            {
+                DirectoryController.removeDirectory(remove_file);
+            }
             out.println("Removed " + "'" + remove_file.getName() + "'");
         } else
         {
@@ -370,7 +378,7 @@ public class ControlThread extends Thread
             return;
         }
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
-        out.println("Downloading ... > ");
+        out.println("Downloading ...");
         Socket clientDataSocket = serverDataSocket.accept();
         Thread dataThread = new DataThread(clientDataSocket, file_download, "GET", user_login);
         dataThread.start();
@@ -390,6 +398,17 @@ public class ControlThread extends Thread
             upload_dir.mkdirs();
         }
         String file_upload_name = raw_cmd.substring(indexCommander + 1);
+        String file_sz = in.readLine();
+        if (file_sz == null)
+        {
+            return;
+        }
+        long file_size = Long.parseLong(file_sz);
+        if (file_size > user_login.getMax_size() - DirectoryController.calculateDirectorySize(new File(USER_UPLOAD_DIRECTORY)))
+        {
+            out.println("Your file is too large to upload!");
+            return;
+        }
         String new_file_name = getUniqueFileName(file_upload_name);
         File file_upload = new File(new_file_name);
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
@@ -526,9 +545,20 @@ public class ControlThread extends Thread
         user_login = AccountController.loginUser(username, passwd);
         if (user_login != null)
         {
+            if (AccountController.isUserBlocked(user_login.getId()))
+            {
+                out.println("This account has been blocked!");
+                return;
+            }
             Gson gson = new Gson();
             out.println(gson.toJson(user_login));
             WORKING_DIRECTORY = UPLOAD_DIRECTORY + File.separator + user_login.getUsername();
+            File personal_dir = new File(WORKING_DIRECTORY);
+            if (!personal_dir.exists())
+            {
+                createPersonalDirectory(user_login);
+            }
+            USER_UPLOAD_DIRECTORY = WORKING_DIRECTORY;
         } else
         {
             out.println("Login failed!");

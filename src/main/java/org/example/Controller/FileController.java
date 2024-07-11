@@ -47,10 +47,10 @@ public class FileController
         int new_row_file = ps.executeUpdate();
         if (new_row_file > 0)
         {
-            System.out.println(user_upload.getUsername() + " UPLOAD '" + upload_file.getFilename() + "' SUCCESS!");
+//            System.out.println(user_upload.getUsername() + " UPLOAD '" + upload_file.getFilename() + "' SUCCESS!");
         } else
         {
-            System.out.println("UPLOAD FAILED!");
+//            System.out.println("UPLOAD FAILED!");
         }
     }
 
@@ -81,7 +81,7 @@ public class FileController
             );
             return file;
         }
-        System.out.println("Can not find " + path_file);
+//        System.out.println("Can not find " + path_file);
         return null;
     }
 
@@ -106,7 +106,7 @@ public class FileController
                         rs.getString("date_created"),
                         rs.getBoolean("anonymous"),
                         rs.getBoolean("activated"),
-                        rs.getInt("id_role")
+                        rs.getLong("max_size")
                 );
             }
             return user_upload;
@@ -115,4 +115,20 @@ public class FileController
             throw new RuntimeException(e);
         }
     }
+
+    public static void removeFile(java.io.File file_remove)
+    {
+        String query = "DELETE FROM `files` WHERE (filepath = )";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, file_remove.getAbsolutePath());
+            ps.executeUpdate();
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
 }

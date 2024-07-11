@@ -125,8 +125,6 @@ public class Client1
                 }).start();
                 break;
             case "GET":
-                System.out.println("Type 'pd' to pause download");
-                System.out.println("Type 'rd' to resume download");
                 new Thread(() ->
                 {
                     try
@@ -149,10 +147,20 @@ public class Client1
         //viet trang help cho client
         System.out.println("reg - register new account");
         System.out.println("log - login to your account");
+        System.out.println("info - show your information");
         System.out.println("otp - verify your email");
-        System.out.println("ls - show file on server (or use 'ls <folder-name>')");
-        System.out.println("get - download file from server (usage: get <file-name>)");
-        System.out.println("up - upload file to server (usage: up <file-name>)");
+        System.out.println("ls - show file on server");
+        System.out.println("get - download file from server");
+        System.out.println("pd - pause download");
+        System.out.println("rd - resume download");
+        System.out.println("up - upload file to server");
+        System.out.println("pu - pause upload");
+        System.out.println("ru - resume upload");
+        System.out.println("shr - sharing your file or directory to another user");
+        System.out.println("lshr - show file and directory received");
+        System.out.println("cd - move to a directory");
+        System.out.println("mkdir - create a directory");
+        System.out.println("rm - remove file or directory");
         System.out.println("out - logout");
         System.out.println("quit - quit from the server");
         System.out.println("help - see this help");
@@ -227,6 +235,11 @@ public class Client1
 
     private static void showProfile()
     {
+        if (user_login == null)
+        {
+            System.out.println("Login first!");
+            return;
+        }
         System.out.println(user_login.toString());
     }
 
@@ -302,7 +315,8 @@ public class Client1
         String filename_download = raw_cmd.substring(raw_cmd.indexOf(" ") + 1);
         String new_file_name = getUniqueFileName(filename_download);
         String download_status = in.readLine();
-        System.out.println("\r" + download_status + "\n\r> ");
+        System.out.print("\rType 'pd' to pause download\nType 'rd' to resume download\n");
+        System.out.print("\r" + download_status + "\n\r> ");
         if (download_status.contains("Login") || download_status.contains("not found"))
         {
             return;
@@ -317,7 +331,7 @@ public class Client1
             }
             out.flush();
             dataSocket.close();
-            System.out.println("Downloaded successful!\nLocation: '" + new_file_name + "'");
+            System.out.print("\rDownloaded successful!\nLocation: '" + new_file_name + "'\n> ");
         } catch (IOException e)
         {
             System.out.println(e.getMessage());
@@ -366,11 +380,13 @@ public class Client1
             System.out.println(uploadFile.getName() + " not found!");
             return;
         }
-        System.out.print("\rType 'pu' to pause upload\nType 'ru' to resume upload");
+
         out.println(raw_cmd);
+        out.println(uploadFile.length());
         String upload_status = in.readLine();
-        System.out.print("\r" + upload_status + "\n\r>");
-        if (upload_status.contains("Login"))
+        System.out.print("\rType 'pu' to pause upload\nType 'ru' to resume upload\n");
+        System.out.print("\r" + upload_status + "\n\r> ");
+        if (upload_status.contains("Login") || upload_status.contains("large"))
         {
             return;
         }
@@ -436,7 +452,7 @@ public class Client1
         out.println(message);
         out.println(pass);
         login_status = in.readLine();
-        if (login_status.contains("failed"))
+        if (login_status.contains("failed") || login_status.contains("blocked"))
         {
             System.out.println(login_status);
             return;
@@ -470,7 +486,16 @@ public class Client1
             rePasswd = sc.nextLine();
         } while (!rePasswd.equals(passwd));
         Gson gson = new Gson();
-        User register_user = new User(UUID.randomUUID().toString(), fullname, username, email, passwd, LocalDateTime.now().toString(), true, false, 2);
+        User register_user = new User(
+                UUID.randomUUID().toString(),
+                fullname,
+                username,
+                email,
+                passwd,
+                LocalDateTime.now().toString(),
+                true,
+                false,
+                0);
         out.println(gson.toJson(register_user));
         register_status = in.readLine();
         System.out.println(register_status);

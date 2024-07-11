@@ -10,12 +10,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Properties;
 
 import static org.example.DB.DatabaseConnector.connectToDatabase;
 
 public class AccountController
 {
+    private static final long DEFAULT_MAX_SIZE = (long) (5 * Math.pow(1024, 3));
     static Connection connection;
 
     static
@@ -32,7 +34,7 @@ public class AccountController
 
     public static boolean createUser(User new_user) throws SQLException
     {
-        String register_query = "INSERT INTO users (id, username, password, email, fullname, date_created, anonymous, activated, id_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String register_query = "INSERT INTO users (id, username, password, email, fullname, date_created, anonymous, activated, max_size) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         PreparedStatement ps;
         try
         {
@@ -45,7 +47,7 @@ public class AccountController
             ps.setString(6, new_user.getDate_created());
             ps.setBoolean(7, new_user.isAnonymous());
             ps.setBoolean(8, new_user.isActivated());
-            ps.setInt(9, new_user.getId_role());
+            ps.setLong(9, DEFAULT_MAX_SIZE);
 
         } catch (SQLException e)
         {
@@ -54,10 +56,10 @@ public class AccountController
         int new_row_user = ps.executeUpdate();
         if (new_row_user > 0)
         {
-            System.out.println("REGISTER SUCCESS!");
+//            System.out.println("REGISTER SUCCESS!");
             return true;
         }
-        System.out.println("REGISTER FAILED!");
+//        System.out.println("REGISTER FAILED!");
         return false;
     }
 
@@ -105,7 +107,7 @@ public class AccountController
                     rs.getString("date_created"),
                     rs.getBoolean("anonymous"),
                     rs.getBoolean("activated"),
-                    rs.getInt("id_role")
+                    rs.getLong("max_size")
             );
             return user_login;
         }
@@ -151,11 +153,11 @@ public class AccountController
             message.setText("Your OTP code is: " + otp);
             //Gửi email
             Transport.send(message);
-            System.out.println("Filtra-ftp was sent OTP to your email. Please check your mail");
+//            System.out.println("Filtra-ftp had sent OTP to your email. Please check your mail");
 
         } catch (MessagingException mes)
         {
-            System.out.println("Failed to send OTP email. Error: " + mes.getMessage());
+//            System.out.println("Failed to send OTP email. Error: " + mes.getMessage());
         }
 
     }
@@ -197,16 +199,16 @@ public class AccountController
                         boolean activated = rs.getBoolean("activated");
                         if (activated)
                         {
-                            System.out.println("User is Activated");
+//                            System.out.println("User is Activated");
                             return true;
                         } else
                         {
-                            System.out.println("User is not Activated");
+//                            System.out.println("User is not Activated");
                             return false;
                         }
                     } else
                     {
-                        System.out.println("Email not found");
+//                        System.out.println("Email not found");
                         return false;
                     }
                 }
@@ -232,7 +234,7 @@ public class AccountController
         ResultSet rs = ps.executeQuery();
         if (rs.next())
         {
-            System.out.println("Founded user: " + rs.getString("username"));
+//            System.out.println("Founded user: " + rs.getString("username"));
             user = new User(
                     rs.getString("id"),
                     rs.getString("fullname"),
@@ -242,7 +244,7 @@ public class AccountController
                     rs.getString("date_created"),
                     rs.getBoolean("anonymous"),
                     rs.getBoolean("activated"),
-                    rs.getInt("id_role")
+                    rs.getLong("max_size")
             );
             return user;
         }
@@ -291,6 +293,42 @@ public class AccountController
             System.out.println("Block user failed!");
     }
 
+    public static void unblockUserById(String id_user)
+    {
+        String query = "DELETE FROM block_users WHERE (`id` = ?)";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_user);
+            ps.executeUpdate();
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public static ArrayList<String> getBlockedUsers()
+    {
+        ArrayList<String> id_users = new ArrayList<>();
+        String query = "SELECT * FROM block_users";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next())
+            {
+                id_users.add(rs.getString("id"));
+            }
+            return id_users;
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public static boolean isUserBlocked(String id_user)
     {
         String query = "SELECT * FROM block_users WHERE id = ?";
@@ -311,6 +349,38 @@ public class AccountController
 
         }
         return false;
+    }
+
+    public static User getUserById(String id) throws SQLException
+    {
+        User user;
+        String query = "SELECT * FROM users WHERE id = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        ResultSet rs = ps.executeQuery();
+        if (rs.next())
+        {
+            user = new User(
+                    rs.getString("id"),
+                    rs.getString("fullname"),
+                    rs.getString("username"),
+                    rs.getString("email"),
+                    rs.getString("password"),
+                    rs.getString("date_created"),
+                    rs.getBoolean("anonymous"),
+                    rs.getBoolean("activated"),
+                    rs.getLong("max_size")
+            );
+            return user;
+        }
+        return null;
     }
 }
 

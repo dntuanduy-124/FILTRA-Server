@@ -45,10 +45,10 @@ public class DirectoryController
         int new_row_file = ps.executeUpdate();
         if (new_row_file > 0)
         {
-            System.out.println("'" + upload_dir.getName_directory() + "' created!");
+//            System.out.println("'" + upload_dir.getName_directory() + "' created!");
         } else
         {
-            System.out.println("failed create directory!");
+//            System.out.println("failed create directory!");
         }
     }
 
@@ -77,7 +77,7 @@ public class DirectoryController
             );
             return file;
         }
-        System.out.println("Can not find " + path_directory);
+//        System.out.println("Can not find " + path_directory);
         return null;
     }
 
@@ -102,13 +102,66 @@ public class DirectoryController
                         rs.getString("date_created"),
                         rs.getBoolean("anonymous"),
                         rs.getBoolean("activated"),
-                        rs.getInt("id_role")
+                        rs.getLong("max_size")
                 );
             }
             return user_upload;
         } catch (SQLException e)
         {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static boolean setUserDataById(String id_user, long data_size)
+    {
+        String query = "UPDATE users SET max_size = ? WHERE id = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setLong(1, data_size);
+            ps.setString(2, id_user);
+            ps.executeUpdate();
+            return true;
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public static long calculateDirectorySize(java.io.File directory)
+    {
+        long size = 0;
+        java.io.File[] files = directory.listFiles();
+        if (files != null)
+        {
+            for (java.io.File file : files)
+            {
+                if (file.isFile())
+                {
+                    size += file.length();
+                } else if (file.isDirectory())
+                {
+                    size += calculateDirectorySize(file);
+                }
+            }
+        }
+        return size;
+    }
+
+    public static void removeDirectory(java.io.File dir_remove)
+    {
+        String query = "DELETE FROM `files` WHERE (path_directory = ?)";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, dir_remove.getAbsolutePath());
+            ps.executeUpdate();
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
         }
     }
 }
