@@ -47,7 +47,6 @@ public class Client2
             System.out.print("> ");
             String raw_cmd = sc.nextLine().trim();
             sendCommandToServer(raw_cmd);
-            System.out.println("-----------------------------------------");
             if (commander.equals("QUIT") || controlSocket.isClosed())
             {
                 return;
@@ -130,6 +129,18 @@ public class Client2
                     try
                     {
                         downloadFile(raw_command);
+                    } catch (IOException e)
+                    {
+                        throw new RuntimeException(e);
+                    }
+                }).start();
+                break;
+            case "GETFS":
+                new Thread(() ->
+                {
+                    try
+                    {
+                        downloadFileShared(raw_command);
                     } catch (IOException e)
                     {
                         throw new RuntimeException(e);
@@ -299,6 +310,46 @@ public class Client2
         controlSocket.close();
     }
 
+    private static void downloadFileShared(String raw_cmd) throws IOException
+    {
+        if (raw_cmd.length() == 5)
+        {
+            System.out.print("\rUsage: getfs <email> <file-name>\n> ");
+            return;
+        }
+        File download_directory = new File(DOWNLOAD_DIRECTORY);
+        if (!download_directory.exists())
+        {
+            download_directory.mkdirs();
+        }
+        out.println(raw_cmd);
+        String[] parameters = raw_cmd.split(" ");
+        String file_name = parameters[2].trim();
+        String new_file_name = getUniqueFileName(file_name);
+        String download_status = in.readLine();
+        System.out.print("\rType 'pd' to pause download\nType 'rd' to resume download\n");
+        System.out.print("\r" + download_status + "\n\r> ");
+        if (download_status.contains("Login") || download_status.contains("not found") || download_status.contains("failed"))
+        {
+            return;
+        }
+        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT); BufferedInputStream in = new BufferedInputStream(dataSocket.getInputStream()); BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(new_file_name)))
+        {
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1)
+            {
+                out.write(buffer, 0, bytesRead);
+            }
+            out.flush();
+            dataSocket.close();
+            System.out.print("\rDownloaded successful!\nLocation: '" + new_file_name + "'\n> ");
+        } catch (IOException e)
+        {
+            System.out.println(e.getMessage());
+        }
+    }
+
     private static void downloadFile(String raw_cmd) throws IOException
     {
         if (raw_cmd.length() == 3)
@@ -317,6 +368,7 @@ public class Client2
         String download_status = in.readLine();
         System.out.print("\rType 'pd' to pause download\nType 'rd' to resume download\n");
         System.out.print("\r" + download_status + "\n\r> ");
+
         if (download_status.contains("Login") || download_status.contains("not found"))
         {
             return;
