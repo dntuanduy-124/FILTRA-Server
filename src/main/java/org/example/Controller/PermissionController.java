@@ -105,7 +105,7 @@ public class PermissionController
         {
             read_permit = write_permit = true;
         }
-        User user_receive = AccountController.findUserByEmail(email);
+        User user_receive = AccountController.getUserByEmail(email);
         if (type.equals("f"))
         {
             file_share = FileController.findFileByPath(file_path);
@@ -151,14 +151,38 @@ public class PermissionController
                 throw new RuntimeException(e);
             }
             int new_permission = ps.executeUpdate();
-            if (new_permission > 0)
-            {
-//                System.out.println("Set permission success!");
-                return true;
-            }
-//            System.out.println("Failed to set permission!");
-            return false;
+            return new_permission > 0;
         }
         return false;
+    }
+
+    public static Permission getFileSharedPermission(String id_file, String id_user_receive)
+    {
+        String query = "SELECT * FROM permissions WHERE id_file = ? && id_user = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_file);
+            ps.setString(2, id_user_receive);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+            {
+                return new Permission(
+                        rs.getString("id_permission"),
+                        rs.getString("id_file"),
+                        rs.getString("id_directory"),
+                        rs.getString("id_user"),
+                        rs.getBoolean("isRead"),
+                        rs.getBoolean("isWrite")
+
+                );
+            }
+
+        } catch (SQLException e)
+        {
+            System.out.println(e.getMessage());
+        }
+        return null;
     }
 }

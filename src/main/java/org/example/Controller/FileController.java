@@ -131,4 +131,32 @@ public class FileController
         }
     }
 
+    public static File getFileShared(String email, String file_name)
+    {
+        String query = "SELECT f.* FROM files f, users u WHERE f.id_user_upload = u.id && u.email = ? && f.filename = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, email);
+            ps.setString(2, file_name);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+            {
+                return new File(
+                        rs.getString("id_file"),
+                        rs.getString("id_user_upload"),
+                        rs.getString("filename"),
+                        rs.getString("filepath"),
+                        rs.getString("filetype"),
+                        rs.getString("upload_date"),
+                        rs.getString("filesize")
+                );
+            }
+            return null;
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+    }
 }

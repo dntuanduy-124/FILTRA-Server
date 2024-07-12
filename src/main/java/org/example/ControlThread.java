@@ -6,6 +6,7 @@ import org.example.Controller.DirectoryController;
 import org.example.Controller.FileController;
 import org.example.Controller.PermissionController;
 import org.example.Model.Directory;
+import org.example.Model.Permission;
 import org.example.Model.User;
 
 import java.io.*;
@@ -14,6 +15,7 @@ import java.net.Socket;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Random;
 import java.util.UUID;
 
@@ -100,6 +102,9 @@ public class ControlThread extends Thread
             case "GET":
                 downloadFile();
                 break;
+            case "GETFS":
+                downloadFileShared();
+                break;
             case "SHR":
                 shareFile();
                 break;
@@ -156,6 +161,11 @@ public class ControlThread extends Thread
         if (user_login == null)
         {
             out.println("Login first!");
+            return;
+        }
+        if (!AccountController.isEmailActivated(user_login.getEmail()))
+        {
+            out.println("You need to activated your email first!");
             return;
         }
         if (!(raw_cmd.contains("-e") && raw_cmd.contains("-p") && (raw_cmd.contains("-f") || raw_cmd.contains("-d"))))
@@ -275,6 +285,43 @@ public class ControlThread extends Thread
             return;
         }
         out.println("Your OTP is not valid!");
+    }
+
+    private void downloadFileShared() throws IOException
+    {
+        if (user_login == null)
+        {
+            out.println("Login first!");
+            return;
+        }
+        // COMMAND: getfs <email> <file-name>
+        String[] parameters = raw_cmd.split(" ");
+        String email = parameters[1].trim();
+        String file_name = parameters[2].trim();
+        org.example.Model.File file_shared = FileController.getFileShared(email, file_name);
+        if (file_shared == null)
+        {
+            out.println("Download failed!");
+            return;
+        }
+        Permission permission_of_file_shared = PermissionController.getFileSharedPermission(file_shared.getId_file(), user_login.getId());
+        if (permission_of_file_shared == null)
+        {
+            out.println("Download failed!");
+            return;
+        }
+        File file_download = new File(file_shared.getFilepath());
+        if (!file_download.exists())
+        {
+            out.println("'" + file_download.getName() + "'" + " not found!");
+            return;
+        }
+        ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
+        out.println("Downloading ...");
+        Socket clientDataSocket = serverDataSocket.accept();
+        Thread dataThread = new DataThread(clientDataSocket, file_download, "GET", user_login);
+        dataThread.start();
+        serverDataSocket.close();
     }
 
     private void removeFileOrDirectory()

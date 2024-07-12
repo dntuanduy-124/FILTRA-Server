@@ -54,13 +54,14 @@ public class AccountController
             throw new RuntimeException(e);
         }
         int new_row_user = ps.executeUpdate();
-        if (new_row_user > 0)
-        {
+//        if (new_row_user > 0)
+//        {
 //            System.out.println("REGISTER SUCCESS!");
-            return true;
-        }
+//            return true;
+//        }
 //        System.out.println("REGISTER FAILED!");
-        return false;
+//        return false;
+        return new_row_user > 0;
     }
 
     public static boolean isUserExist(String username, String email) throws SQLException
@@ -187,7 +188,7 @@ public class AccountController
 
         try (Connection conn = DatabaseConnector.connectToDatabase())
         {
-
+            boolean activated = false;
             String query = "SELECT activated FROM users WHERE email = ?";
             try (PreparedStatement stmt = conn.prepareStatement(query))
             {
@@ -196,19 +197,19 @@ public class AccountController
                 {
                     if (rs.next())
                     {
-                        boolean activated = rs.getBoolean("activated");
-                        if (activated)
-                        {
+                        activated = rs.getBoolean("activated");
+//                        if (activated)
+//                        {
 //                            System.out.println("User is Activated");
-                            return true;
-                        } else
-                        {
+//                            return true;
+//                        } else
+//                        {
 //                            System.out.println("User is not Activated");
-                            return false;
-                        }
+//                            return false;
+//                        }
+                        return activated;
                     } else
                     {
-//                        System.out.println("Email not found");
                         return false;
                     }
                 }
@@ -218,7 +219,7 @@ public class AccountController
         }
     }
 
-    public static User findUserByEmail(String email) throws SQLException
+    public static User getUserByEmail(String email) throws SQLException
     {
         User user;
         String login_query = "SELECT * FROM users WHERE email = ?";
