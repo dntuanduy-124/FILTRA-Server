@@ -53,7 +53,7 @@ public class PermissionController
                     rs.getString("filepath"),
                     rs.getString("filetype"),
                     rs.getString("upload_date"),
-                    rs.getString("filesize")
+                    rs.getLong("filesize")
             );
             file_receives.add(permit_file);
         }
@@ -108,10 +108,10 @@ public class PermissionController
         User user_receive = AccountController.getUserByEmail(email);
         if (type.equals("f"))
         {
-            file_share = FileController.findFileByPath(file_path);
+            file_share = FileController.getFileByPath(file_path);
         } else if (type.equals("d"))
         {
-            directory_share = DirectoryController.findDirectoryByPath(file_path);
+            directory_share = DirectoryController.getDirectoryByPath(file_path);
         }
         if (user_receive != null)
         {
@@ -185,4 +185,35 @@ public class PermissionController
         }
         return null;
     }
+
+    public static Permission getDirectorySharedPermission(String id_directory, String id_user_receive)
+    {
+        String query = "SELECT * FROM permissions WHERE id_directory = ? && id_user = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id_directory);
+            ps.setString(2, id_user_receive);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+            {
+                return new Permission(
+                        rs.getString("id_permission"),
+                        rs.getString("id_file"),
+                        rs.getString("id_directory"),
+                        rs.getString("id_user"),
+                        rs.getBoolean("isRead"),
+                        rs.getBoolean("isWrite")
+
+                );
+            }
+
+        } catch (SQLException e)
+        {
+            System.out.println(e.getMessage());
+        }
+        return null;
+    }
+
 }

@@ -8,7 +8,7 @@ public class File
     private String filepath;
     private String filetype;
     private String upload_date;
-    private String filesize;
+    private Long filesize;
 
     public String getUpload_date()
     {
@@ -20,12 +20,12 @@ public class File
         this.upload_date = upload_date;
     }
 
-    public String getFilesize()
+    public Long getFilesize()
     {
         return filesize;
     }
 
-    public void setFilesize(String filesize)
+    public void setFilesize(Long filesize)
     {
         this.filesize = filesize;
     }
@@ -81,7 +81,7 @@ public class File
     }
 
 
-    public File(String id_file, String id_user_upload, String filename, String filepath, String filetype, String upload_date, String filesize)
+    public File(String id_file, String id_user_upload, String filename, String filepath, String filetype, String upload_date, long filesize)
     {
         this.id_file = id_file;
         this.id_user_upload = id_user_upload;

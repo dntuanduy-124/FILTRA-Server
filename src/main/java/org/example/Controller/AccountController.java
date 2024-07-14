@@ -54,13 +54,6 @@ public class AccountController
             throw new RuntimeException(e);
         }
         int new_row_user = ps.executeUpdate();
-//        if (new_row_user > 0)
-//        {
-//            System.out.println("REGISTER SUCCESS!");
-//            return true;
-//        }
-//        System.out.println("REGISTER FAILED!");
-//        return false;
         return new_row_user > 0;
     }
 

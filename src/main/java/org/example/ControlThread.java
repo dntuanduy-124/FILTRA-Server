@@ -1,11 +1,9 @@
 package org.example;
 
 import com.google.gson.Gson;
-import org.example.Controller.AccountController;
-import org.example.Controller.DirectoryController;
-import org.example.Controller.FileController;
-import org.example.Controller.PermissionController;
+import org.example.Controller.*;
 import org.example.Model.Directory;
+import org.example.Model.Notify;
 import org.example.Model.Permission;
 import org.example.Model.User;
 
@@ -14,10 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 public class ControlThread extends Thread
 {
@@ -102,6 +97,9 @@ public class ControlThread extends Thread
             case "GET":
                 downloadFile();
                 break;
+            case "UPTO":
+                uploadToDirectoryShared();
+                break;
             case "GETFS":
                 downloadFileShared();
                 break;
@@ -123,8 +121,11 @@ public class ControlThread extends Thread
             case "RD":
                 resumeDownload();
                 break;
+            case "NOTI":
+                listNotifications();
+                break;
             default:
-                System.out.println("Wrong command!");
+//                System.out.println("Wrong command!");
                 break;
         }
     }
@@ -154,6 +155,39 @@ public class ControlThread extends Thread
         }
         out.println(gson.toJson(list_file_share));
         out.println(gson.toJson(list_dir_share));
+    }
+
+    private void listNotifications() throws SQLException
+    {
+        if (user_login == null)
+        {
+            out.println("Login first!");
+            return;
+        }
+        out.println("-- Notification --");
+        ArrayList<Notify> list_notifications = NotifyController.getUserNotifications(user_login.getId());
+        String[] notify_message = new String[list_notifications.size()];
+        for (int i = 0; i < list_notifications.size(); i++)
+        {
+            String email_user_interacted = Objects.requireNonNull(AccountController.getUserById(list_notifications.get(i).getId_user_interacted())).getEmail();
+            String file_name = list_notifications.get(i).getId_file().isEmpty() ? " directory name '" + Objects.requireNonNull(DirectoryController.getDirectoryById(list_notifications.get(i).getId_directory())).getName_directory() : " file name '" + Objects.requireNonNull(FileController.getFileById(list_notifications.get(i).getId_file())).getFilename() + "' to '" + Objects.requireNonNull(DirectoryController.getDirectoryById(list_notifications.get(i).getId_directory())).getName_directory() + "'";
+            NotifyController.Action action = list_notifications.get(i).getAction();
+            if (action == NotifyController.Action.SHARE)
+            {
+                notify_message[i] = email_user_interacted + " shared a" + file_name + "' to you";
+            } else if (action == NotifyController.Action.UPLOAD)
+            {
+                notify_message[i] = email_user_interacted + " uploaded a" + file_name;
+            } else if (action == NotifyController.Action.CREATE_DIRECTORY)
+            {
+                notify_message[i] = email_user_interacted + " created a directory";
+            } else if (action == NotifyController.Action.REMOVE)
+            {
+                notify_message[i] = email_user_interacted + " removed" + file_name;
+            }
+        }
+        Gson gson = new Gson();
+        out.println(gson.toJson(notify_message));
     }
 
     private void shareFile() throws SQLException
@@ -186,15 +220,28 @@ public class ControlThread extends Thread
             file_sharing = share_parts[3].substring(share_parts[3].indexOf("d") + 2).trim();
         }
         File file_shr = new File(WORKING_DIRECTORY + File.separator + file_sharing);
+        if (!file_shr.exists())
+        {
+            out.println("Sharing failed!");
+            return;
+        }
         if (email_user.isEmpty() || permission.isEmpty() || file_sharing.isEmpty())
         {
             out.println("Usage: shr -e <email-receive> -p <WRITE|READ|FULL> -f|-d <file|directory-name>");
+            return;
+        }
+        Notify notify = null;
+        User user_interacted = AccountController.getUserByEmail(email_user);
+        if (user_interacted == null)
+        {
+            out.println("Sharing failed!");
             return;
         }
         if (file_shr.isFile())
         {
             if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath(), "f"))
             {
+                notify = new Notify(UUID.randomUUID().toString(), user_interacted.getId(), user_login.getId(), "", Objects.requireNonNull(FileController.getFileByPath(file_shr.getAbsolutePath())).getId_file(), NotifyController.Action.SHARE, LocalDateTime.now().toString());
                 out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
             } else
             {
@@ -204,13 +251,14 @@ public class ControlThread extends Thread
         {
             if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath(), "d"))
             {
+                notify = new Notify(UUID.randomUUID().toString(), user_interacted.getId(), user_login.getId(), Objects.requireNonNull(DirectoryController.getDirectoryByPath(file_shr.getAbsolutePath())).getId_directory(), "", NotifyController.Action.SHARE, LocalDateTime.now().toString());
                 out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
             } else
             {
                 out.println("Sharing failed!");
             }
         }
-
+        NotifyController.createNotify(Objects.requireNonNull(notify));
     }
 
     private void pauseDownload()
@@ -294,7 +342,6 @@ public class ControlThread extends Thread
             out.println("Login first!");
             return;
         }
-        // COMMAND: getfs <email> <file-name>
         String[] parameters = raw_cmd.split(" ");
         String email = parameters[1].trim();
         String file_name = parameters[2].trim();
@@ -319,9 +366,74 @@ public class ControlThread extends Thread
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
         out.println("Downloading ...");
         Socket clientDataSocket = serverDataSocket.accept();
-        Thread dataThread = new DataThread(clientDataSocket, file_download, "GET", user_login);
+        Thread dataThread = new DataThread(clientDataSocket, file_download, "GET", user_login, null, null);
         dataThread.start();
         serverDataSocket.close();
+
+    }
+
+    private void uploadToDirectoryShared() throws SQLException, IOException
+    {
+        if (user_login == null)
+        {
+            out.println("Login first!");
+            return;
+        }
+        String raw_parameters = raw_cmd.substring(indexCommander + 1);
+        if (!raw_parameters.contains("-d") || !raw_parameters.contains("-f"))
+        {
+            out.println("Usage: upto <email> -d <directory-name> -f <file-name>");
+            return;
+        }
+        String[] parameters = raw_parameters.split("-");
+        String email = parameters[0].trim();
+        String directory = parameters[1].substring(parameters[1].indexOf("d") + 1).trim();
+        String file = parameters[2].substring(parameters[2].indexOf("f") + 1).trim();
+        Directory dir_shared = DirectoryController.getDirectoryShared(email, directory);
+        if (dir_shared == null)
+        {
+            out.println("Upload failed!");
+            return;
+        }
+        Permission permission_dir = PermissionController.getDirectorySharedPermission(dir_shared.getId_directory(), user_login.getId());
+        if (permission_dir == null || !permission_dir.isWrite())
+        {
+            out.println("You do not have permission!");
+            return;
+        }
+        File dir = new File(dir_shared.getPath_directory());
+        String file_sz = in.readLine();
+        if (file_sz == null)
+        {
+            return;
+        }
+        long file_size = Long.parseLong(file_sz);
+        User user_sharing = AccountController.getUserById(dir_shared.getId_user());
+        if (user_sharing == null)
+        {
+            out.println("Upload failed!");
+            return;
+        }
+
+        long user_sharing_current_size = DirectoryController.calculateDirectorySize(new File(UPLOAD_DIRECTORY + File.separator + user_sharing.getUsername()));
+        if (file_size > user_sharing.getMax_size() - user_sharing_current_size)
+        {
+            out.println("Your file is too large to upload!");
+            return;
+        }
+
+        String new_file_name = getUniqueFileName(file, dir.getAbsolutePath());
+
+
+        File file_upload = new File(new_file_name);
+        String id_file = UUID.randomUUID().toString();
+        ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
+        out.println("Uploading ...");
+        Socket clientDataSocket = serverDataSocket.accept();
+        Thread dataThread = new DataThread(clientDataSocket, file_upload, "UP", user_login, user_sharing, dir_shared);
+        dataThread.start();
+        serverDataSocket.close();
+
     }
 
     private void removeFileOrDirectory()
@@ -427,12 +539,12 @@ public class ControlThread extends Thread
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
         out.println("Downloading ...");
         Socket clientDataSocket = serverDataSocket.accept();
-        Thread dataThread = new DataThread(clientDataSocket, file_download, "GET", user_login);
+        Thread dataThread = new DataThread(clientDataSocket, file_download, "GET", user_login, null, null);
         dataThread.start();
         serverDataSocket.close();
     }
 
-    private void uploadFile() throws IOException
+    private void uploadFile() throws IOException, SQLException
     {
         if (user_login == null)
         {
@@ -456,12 +568,12 @@ public class ControlThread extends Thread
             out.println("Your file is too large to upload!");
             return;
         }
-        String new_file_name = getUniqueFileName(file_upload_name);
+        String new_file_name = getUniqueFileName(file_upload_name, WORKING_DIRECTORY);
         File file_upload = new File(new_file_name);
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
         out.println("Uploading ...");
         Socket clientDataSocket = serverDataSocket.accept();
-        Thread dataThread = new DataThread(clientDataSocket, file_upload, "UP", user_login);
+        Thread dataThread = new DataThread(clientDataSocket, file_upload, "UP", user_login, null, null);
         dataThread.start();
         serverDataSocket.close();
     }
@@ -487,7 +599,7 @@ public class ControlThread extends Thread
             out.println("usage: 'mkdir <directory-name>'");
             return;
         }
-        String uniqueDirectoryName = getUniqueFileName(directoryName);
+        String uniqueDirectoryName = getUniqueFileName(directoryName, WORKING_DIRECTORY);
         File new_dir = new File(uniqueDirectoryName);
         if (!new_dir.exists())
         {
@@ -551,15 +663,13 @@ public class ControlThread extends Thread
         }
     }
 
-    private String getUniqueFileName(String filename)
+    private String getUniqueFileName(String filename, String directory_path)
     {
-        File file = new File(WORKING_DIRECTORY + File.separator + filename);
-
+        File file = new File(directory_path + File.separator + filename);
         if (!file.exists() && !file.isDirectory())
         {
             return file.getAbsolutePath();
         }
-
         String name = filename;
         String extension = "";
         int dotIndex = filename.lastIndexOf('.');
@@ -573,7 +683,7 @@ public class ControlThread extends Thread
         while (file.exists() || file.isDirectory())
         {
             String newFileName = name + "(" + count + ")" + extension;
-            file = new File(WORKING_DIRECTORY + File.separator + newFileName);
+            file = new File(directory_path + File.separator + newFileName);
             count++;
         }
         return file.getAbsolutePath();

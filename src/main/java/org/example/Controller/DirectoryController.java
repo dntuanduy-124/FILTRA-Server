@@ -1,6 +1,7 @@
 package org.example.Controller;
 
 import org.example.Model.Directory;
+import org.example.Model.File;
 import org.example.Model.User;
 
 import java.sql.Connection;
@@ -52,7 +53,7 @@ public class DirectoryController
         }
     }
 
-    public static Directory findDirectoryByPath(String path_directory) throws SQLException
+    public static Directory getDirectoryByPath(String path_directory) throws SQLException
     {
         Directory file;
         String login_query = "SELECT * FROM directories WHERE path_directory = ?";
@@ -130,6 +131,32 @@ public class DirectoryController
         return false;
     }
 
+    public static Directory getDirectoryById(String id) throws SQLException
+    {
+        String query = "SELECT * FROM directories WHERE id_directory = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        ResultSet rs = ps.executeQuery();
+        if (rs.next())
+        {
+            return new Directory(
+                    rs.getString("id_directory"),
+                    rs.getString("id_user"),
+                    rs.getString("path_directory"),
+                    rs.getString("name_directory"),
+                    rs.getString("created_date")
+            );
+        }
+        return null;
+    }
+
     public static long calculateDirectorySize(java.io.File directory)
     {
         long size = 0;
@@ -152,7 +179,7 @@ public class DirectoryController
 
     public static void removeDirectory(java.io.File dir_remove)
     {
-        String query = "DELETE FROM `files` WHERE (path_directory = ?)";
+        String query = "DELETE FROM `directories` WHERE (path_directory = ?)";
         PreparedStatement ps;
         try
         {
@@ -163,5 +190,33 @@ public class DirectoryController
         {
             e.printStackTrace();
         }
+    }
+
+    public static Directory getDirectoryShared(String email, String dir_name)
+    {
+        String query = "SELECT * FROM directories d, users u WHERE d.id_user = u.id && u.email = ? && d.name_directory = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, email);
+            ps.setString(2, dir_name);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next())
+            {
+                return new Directory(
+                        rs.getString("id_directory"),
+                        rs.getString("id_user"),
+                        rs.getString("path_directory"),
+                        rs.getString("name_directory"),
+                        rs.getString("created_date")
+                );
+            }
+
+        } catch (SQLException e)
+        {
+            System.out.println(e.getMessage());
+        }
+        return null;
     }
 }
