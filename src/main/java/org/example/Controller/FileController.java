@@ -1,5 +1,6 @@
 package org.example.Controller;
 
+import org.apache.tika.Tika;
 import org.example.Model.File;
 import org.example.Model.User;
 
@@ -26,7 +27,29 @@ public class FileController
         }
     }
 
-    public static void uploadFile(User user_upload, org.example.Model.File upload_file) throws IOException, SQLException
+    public static String detectFileType(java.io.File file) throws IOException
+    {
+        Tika tika = new Tika();
+        return tika.detect(file);
+    }
+
+    public static void updateFileType(java.io.File file, String id_file)
+    {
+        String query = "UPDATE files SET filetype = ? WHERE id_file = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, detectFileType(file));
+            ps.setString(2, id_file);
+            ps.executeUpdate();
+        } catch (SQLException | IOException e)
+        {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    public static void uploadFile(User user_upload, org.example.Model.File upload_file) throws SQLException
     {
         String query = "INSERT INTO files (id_file, id_user_upload, filename, filepath, filetype, upload_date, filesize) VALUES (?, ?, ?, ?, ?, ?, ?)";
         PreparedStatement ps;
@@ -39,7 +62,7 @@ public class FileController
             ps.setString(4, upload_file.getFilepath());
             ps.setString(5, upload_file.getFiletype());
             ps.setString(6, upload_file.getUpload_date());
-            ps.setString(7, upload_file.getFilesize());
+            ps.setLong(7, upload_file.getFilesize());
         } catch (SQLException e)
         {
             throw new RuntimeException(e);
@@ -54,7 +77,7 @@ public class FileController
         }
     }
 
-    public static File findFileByPath(String path_file) throws SQLException
+    public static File getFileByPath(String path_file) throws SQLException
     {
         File file;
         String login_query = "SELECT * FROM files WHERE filepath = ?";
@@ -77,11 +100,39 @@ public class FileController
                     rs.getString("filepath"),
                     rs.getString("filetype"),
                     rs.getString("upload_date"),
-                    rs.getString("filesize")
+                    rs.getLong("filesize")
             );
             return file;
         }
 //        System.out.println("Can not find " + path_file);
+        return null;
+    }
+
+    public static File getFileById(String id) throws SQLException
+    {
+        String query = "SELECT * FROM files WHERE id_file = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            ps.setString(1, id);
+        } catch (SQLException e)
+        {
+            throw new RuntimeException(e);
+        }
+        ResultSet rs = ps.executeQuery();
+        if (rs.next())
+        {
+            return new File(
+                    rs.getString("id_file"),
+                    rs.getString("id_user_upload"),
+                    rs.getString("filename"),
+                    rs.getString("filepath"),
+                    rs.getString("filetype"),
+                    rs.getString("upload_date"),
+                    rs.getLong("filesize")
+            );
+        }
         return null;
     }
 
@@ -150,7 +201,7 @@ public class FileController
                         rs.getString("filepath"),
                         rs.getString("filetype"),
                         rs.getString("upload_date"),
-                        rs.getString("filesize")
+                        rs.getLong("filesize")
                 );
             }
             return null;

@@ -111,6 +111,9 @@ public class Client1
             case "RM":
                 removeFileOrDirectory(raw_command);
                 break;
+            case "NOTI":
+                listNotifications();
+                break;
             case "UP":
                 new Thread(() ->
                 {
@@ -129,6 +132,18 @@ public class Client1
                     try
                     {
                         downloadFile(raw_command);
+                    } catch (IOException e)
+                    {
+                        throw new RuntimeException(e);
+                    }
+                }).start();
+                break;
+            case "UPTO":
+                new Thread(() ->
+                {
+                    try
+                    {
+                        uploadToDirectoryShared(raw_command);
                     } catch (IOException e)
                     {
                         throw new RuntimeException(e);
@@ -155,7 +170,7 @@ public class Client1
 
     private static void showHelp()
     {
-        //viet trang help cho client
+        //write some help command here
         System.out.println("reg - register new account");
         System.out.println("log - login to your account");
         System.out.println("info - show your information");
@@ -168,6 +183,9 @@ public class Client1
         System.out.println("pu - pause upload");
         System.out.println("ru - resume upload");
         System.out.println("shr - sharing your file or directory to another user");
+        System.out.println("getfs - download the file you received from another user");
+        System.out.println("upto - upload file to the shared directory");
+        System.out.println("noti - show notifications");
         System.out.println("lshr - show file and directory received");
         System.out.println("cd - move to a directory");
         System.out.println("mkdir - create a directory");
@@ -175,6 +193,23 @@ public class Client1
         System.out.println("out - logout");
         System.out.println("quit - quit from the server");
         System.out.println("help - see this help");
+    }
+
+    private static void listNotifications() throws IOException
+    {
+        out.println(commander);
+        String status = in.readLine();
+        System.out.println(status);
+        if (status.contains("Login"))
+        {
+            return;
+        }
+        Gson gson = new Gson();
+        String[] notify_list = gson.fromJson(in.readLine(), String[].class);
+        for (String i : notify_list)
+        {
+            System.out.println(i);
+        }
     }
 
     private static void listFileAndDirectoryReceived() throws IOException
@@ -348,6 +383,59 @@ public class Client1
         {
             System.out.println(e.getMessage());
         }
+    }
+
+    private static void uploadToDirectoryShared(String raw_cmd) throws IOException
+    {
+        if (raw_cmd.length() == 4)
+        {
+            System.out.print("\rUsage: upto <email> -d <directory-name> -f <file-name>\n> ");
+            return;
+        }
+        String filename = raw_cmd.substring(raw_cmd.indexOf("-f") + 2).trim();
+        File uploadFile = new File(DOWNLOAD_DIRECTORY + File.separator + filename);
+        if (!uploadFile.exists())
+        {
+            System.out.println(uploadFile.getName() + " not found!");
+            return;
+        }
+        out.println(raw_cmd);
+        out.println(uploadFile.length());
+        String upload_status = in.readLine();
+        System.out.print("\rType 'pu' to pause upload\nType 'ru' to resume upload\n");
+        System.out.print("\r" + upload_status + "\n\r> ");
+        if (upload_status.contains("Login") || upload_status.contains("large") || upload_status.contains("permission"))
+        {
+            return;
+        }
+        File download_dir = new File(DOWNLOAD_DIRECTORY);
+        if (!download_dir.exists())
+        {
+            download_dir.mkdirs();
+        }
+        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT); BufferedInputStream in = new BufferedInputStream(new FileInputStream(uploadFile)); BufferedOutputStream out = new BufferedOutputStream(dataSocket.getOutputStream()))
+        {
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) != -1)
+            {
+                synchronized (pauseLock)
+                {
+                    while (isPaused)
+                    {
+                        pauseLock.wait();
+                    }
+                    out.write(buffer, 0, bytesRead);
+                }
+            }
+            out.flush();
+            dataSocket.close();
+            System.out.print("\rUploaded successful!\n> ");
+        } catch (IOException | InterruptedException e)
+        {
+            System.out.println(e.getMessage());
+        }
+
     }
 
     private static void downloadFile(String raw_cmd) throws IOException
@@ -538,16 +626,7 @@ public class Client1
             rePasswd = sc.nextLine();
         } while (!rePasswd.equals(passwd));
         Gson gson = new Gson();
-        User register_user = new User(
-                UUID.randomUUID().toString(),
-                fullname,
-                username,
-                email,
-                passwd,
-                LocalDateTime.now().toString(),
-                true,
-                false,
-                0);
+        User register_user = new User(UUID.randomUUID().toString(), fullname, username, email, passwd, LocalDateTime.now().toString(), true, false, 0);
         out.println(gson.toJson(register_user));
         register_status = in.readLine();
         System.out.println(register_status);

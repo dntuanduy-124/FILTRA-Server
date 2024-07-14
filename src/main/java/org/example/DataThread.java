@@ -1,6 +1,9 @@
 package org.example;
 
 import org.example.Controller.FileController;
+import org.example.Controller.NotifyController;
+import org.example.Model.Directory;
+import org.example.Model.Notify;
 import org.example.Model.User;
 import org.example.Model.File;
 
@@ -16,13 +19,17 @@ public class DataThread extends Thread
     java.io.File file;
     String command;
     User user_login;
+    User user_sharing;
+    Directory dir_shared;
 
-    public DataThread(Socket dataSocket, java.io.File file, String command, User user_login)
+    public DataThread(Socket dataSocket, java.io.File file, String command, User user_login, User user_sharing, Directory dir_shared)
     {
         this.dataSocket = dataSocket;
         this.file = file;
         this.command = command.toUpperCase();
         this.user_login = user_login;
+        this.user_sharing = user_sharing;
+        this.dir_shared = dir_shared;
     }
 
     @Override
@@ -86,18 +93,30 @@ public class DataThread extends Thread
 
                 out.write(buffer, 0, bytesRead);
             }
-
             out.flush();
-            org.example.Model.File file_upload = new File(
+            File file_up = new File(
                     UUID.randomUUID().toString(),
                     user_login.getId(),
                     file.getName(),
                     file.getAbsolutePath(),
-                    "unknown",
+                    FileController.detectFileType(file),
                     LocalDateTime.now().toString(),
-                    String.valueOf(file.length())
+                    file.length()
             );
-            FileController.uploadFile(user_login, file_upload);
+            FileController.uploadFile(user_login, file_up);
+            if (user_sharing != null && dir_shared != null)
+            {
+                Notify notify = new Notify(
+                        UUID.randomUUID().toString(),
+                        user_sharing.getId(),
+                        user_login.getId(),
+                        dir_shared.getId_directory(),
+                        file_up.getId_file(),
+                        NotifyController.Action.UPLOAD,
+                        LocalDateTime.now().toString()
+                );
+                NotifyController.createNotify(notify);
+            }
         } catch (IOException | SQLException e)
         {
             System.out.println(e.getMessage());
