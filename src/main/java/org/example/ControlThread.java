@@ -426,7 +426,6 @@ public class ControlThread extends Thread
 
 
         File file_upload = new File(new_file_name);
-        String id_file = UUID.randomUUID().toString();
         ServerSocket serverDataSocket = new ServerSocket(DATA_PORT);
         out.println("Uploading ...");
         Socket clientDataSocket = serverDataSocket.accept();
