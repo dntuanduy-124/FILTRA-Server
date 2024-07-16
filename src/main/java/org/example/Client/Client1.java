@@ -96,6 +96,9 @@ public class Client1
             case "LSHR":
                 listFileAndDirectoryReceived();
                 break;
+            case "NOTI":
+                listNotifications();
+                break;
             case "SHR":
                 shareFile(raw_command);
                 break;
@@ -111,8 +114,8 @@ public class Client1
             case "RM":
                 removeFileOrDirectory(raw_command);
                 break;
-            case "NOTI":
-                listNotifications();
+            case "ANONMODE":
+                switchingAnonymousMode(raw_command);
                 break;
             case "UP":
                 new Thread(() ->
@@ -212,6 +215,13 @@ public class Client1
         }
     }
 
+    private static void switchingAnonymousMode(String raw_cmd) throws IOException
+    {
+        out.println(raw_cmd);
+        String status = in.readLine();
+        System.out.println(status);
+    }
+
     private static void listFileAndDirectoryReceived() throws IOException
     {
         out.println(commander);
@@ -286,7 +296,7 @@ public class Client1
             System.out.println("Login first!");
             return;
         }
-        System.out.println(user_login.toString());
+        System.out.println(user_login);
     }
 
     private static void activeEmail() throws IOException
@@ -392,7 +402,17 @@ public class Client1
             System.out.print("\rUsage: upto <email> -d <directory-name> -f <file-name>\n> ");
             return;
         }
+        if (!raw_cmd.contains("-d") || !raw_cmd.contains("-f"))
+        {
+            System.out.print("\rUsage: upto <email> -d <directory-name> -f <file-name>\n> ");
+            return;
+        }
         String filename = raw_cmd.substring(raw_cmd.indexOf("-f") + 2).trim();
+        if (filename.isEmpty())
+        {
+            System.out.print("\rUsage: upto <email> -d <directory-name> -f <file-name>\n> ");
+            return;
+        }
         File uploadFile = new File(DOWNLOAD_DIRECTORY + File.separator + filename);
         if (!uploadFile.exists())
         {

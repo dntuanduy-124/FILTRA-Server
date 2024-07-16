@@ -96,6 +96,9 @@ public class Client2
             case "LSHR":
                 listFileAndDirectoryReceived();
                 break;
+            case "NOTI":
+                listNotifications();
+                break;
             case "SHR":
                 shareFile(raw_command);
                 break;
@@ -111,8 +114,8 @@ public class Client2
             case "RM":
                 removeFileOrDirectory(raw_command);
                 break;
-            case "NOTI":
-                listNotifications();
+            case "ANONMODE":
+                switchingAnonymousMode(raw_command);
                 break;
             case "UP":
                 new Thread(() ->
@@ -170,7 +173,7 @@ public class Client2
 
     private static void showHelp()
     {
-        //viet trang help cho client
+        //write some help command here
         System.out.println("reg - register new account");
         System.out.println("log - login to your account");
         System.out.println("info - show your information");
@@ -184,6 +187,8 @@ public class Client2
         System.out.println("ru - resume upload");
         System.out.println("shr - sharing your file or directory to another user");
         System.out.println("getfs - download the file you received from another user");
+        System.out.println("upto - upload file to the shared directory");
+        System.out.println("noti - show notifications");
         System.out.println("lshr - show file and directory received");
         System.out.println("cd - move to a directory");
         System.out.println("mkdir - create a directory");
@@ -208,6 +213,13 @@ public class Client2
         {
             System.out.println(i);
         }
+    }
+
+    private static void switchingAnonymousMode(String raw_cmd) throws IOException
+    {
+        out.println(raw_cmd);
+        String status = in.readLine();
+        System.out.println(status);
     }
 
     private static void listFileAndDirectoryReceived() throws IOException
@@ -284,7 +296,7 @@ public class Client2
             System.out.println("Login first!");
             return;
         }
-        System.out.println(user_login.toString());
+        System.out.println(user_login);
     }
 
     private static void activeEmail() throws IOException
@@ -390,7 +402,17 @@ public class Client2
             System.out.print("\rUsage: upto <email> -d <directory-name> -f <file-name>\n> ");
             return;
         }
+        if (!raw_cmd.contains("-d") || !raw_cmd.contains("-f"))
+        {
+            System.out.print("\rUsage: upto <email> -d <directory-name> -f <file-name>\n> ");
+            return;
+        }
         String filename = raw_cmd.substring(raw_cmd.indexOf("-f") + 2).trim();
+        if (filename.isEmpty())
+        {
+            System.out.print("\rUsage: upto <email> -d <directory-name> -f <file-name>\n> ");
+            return;
+        }
         File uploadFile = new File(DOWNLOAD_DIRECTORY + File.separator + filename);
         if (!uploadFile.exists())
         {
