@@ -27,6 +27,7 @@ public class ControlThread extends Thread
     public String USER_UPLOAD_DIRECTORY = UPLOAD_DIRECTORY;
     final int DATA_PORT = 2000;
     public static boolean isPaused = false;
+    public static boolean anonymous_mode = false;
     public static final Object pauseLock = new Object();
 
     public ControlThread(Socket clientSocket) throws IOException
@@ -121,6 +122,9 @@ public class ControlThread extends Thread
             case "RD":
                 resumeDownload();
                 break;
+            case "ANONMODE":
+                switchingAnonymousMode();
+                break;
             case "NOTI":
                 listNotifications();
                 break;
@@ -155,6 +159,30 @@ public class ControlThread extends Thread
         }
         out.println(gson.toJson(list_file_share));
         out.println(gson.toJson(list_dir_share));
+    }
+
+    private void switchingAnonymousMode()
+    {
+        if (user_login == null)
+        {
+            out.println("Login first!");
+            return;
+        }
+        if (raw_cmd.length() == 8)
+        {
+            out.println("Usage: anonmode ON|OFF");
+            return;
+        }
+        String mode = raw_cmd.substring(indexCommander + 1).trim();
+        if (mode.equalsIgnoreCase("ON"))
+        {
+            anonymous_mode = true;
+            out.println("Anonymous mode: ON");
+        } else if (mode.equalsIgnoreCase("OFF"))
+        {
+            anonymous_mode = false;
+            out.println("Anonymous mode: OFF");
+        }
     }
 
     private void listNotifications() throws SQLException
@@ -387,9 +415,15 @@ public class ControlThread extends Thread
         }
         String[] parameters = raw_parameters.split("-");
         String email = parameters[0].trim();
+        if (email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
+        {
+            out.println("Email not valid!");
+            return;
+        }
         String directory = parameters[1].substring(parameters[1].indexOf("d") + 1).trim();
         String file = parameters[2].substring(parameters[2].indexOf("f") + 1).trim();
         Directory dir_shared = DirectoryController.getDirectoryShared(email, directory);
+
         if (dir_shared == null)
         {
             out.println("Upload failed!");
@@ -543,7 +577,7 @@ public class ControlThread extends Thread
         serverDataSocket.close();
     }
 
-    private void uploadFile() throws IOException, SQLException
+    private void uploadFile() throws IOException
     {
         if (user_login == null)
         {

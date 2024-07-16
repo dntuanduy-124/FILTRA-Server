@@ -104,19 +104,23 @@ public class DataThread extends Thread
                     file.length()
             );
             FileController.uploadFile(user_login, file_up);
-            if (user_sharing != null && dir_shared != null)
+            if (!ControlThread.anonymous_mode)
             {
-                Notify notify = new Notify(
-                        UUID.randomUUID().toString(),
-                        user_sharing.getId(),
-                        user_login.getId(),
-                        dir_shared.getId_directory(),
-                        file_up.getId_file(),
-                        NotifyController.Action.UPLOAD,
-                        LocalDateTime.now().toString()
-                );
-                NotifyController.createNotify(notify);
+                if (user_sharing != null && dir_shared != null)
+                {
+                    Notify notify = new Notify(
+                            UUID.randomUUID().toString(),
+                            user_sharing.getId(),
+                            user_login.getId(),
+                            dir_shared.getId_directory(),
+                            file_up.getId_file(),
+                            NotifyController.Action.UPLOAD,
+                            LocalDateTime.now().toString()
+                    );
+                    NotifyController.createNotify(notify);
+                }
             }
+
         } catch (IOException | SQLException e)
         {
             System.out.println(e.getMessage());
