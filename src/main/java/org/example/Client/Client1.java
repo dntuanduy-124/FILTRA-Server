@@ -612,7 +612,7 @@ public class Client1
         System.out.println(logout_status);
     }
 
-    private static void login() throws IOException
+    private static void login() throws IOException, IllegalBlockSizeException, BadPaddingException
     {
         out.println(commander);
         String login_status = in.readLine();
@@ -622,11 +622,13 @@ public class Client1
             return;
         }
         System.out.print("Username: ");
-        String message = sc.nextLine();
+        String username = sc.nextLine();
         System.out.print("Password: ");
-        String pass = sc.nextLine();
-        out.println(message);
-        out.println(pass);
+        String passwd = sc.nextLine();
+        byte[] enc_username = cipher.doFinal(username.getBytes());
+        byte[] enc_passwd = cipher.doFinal(passwd.getBytes());
+        out.println(Base64.getEncoder().encodeToString(enc_username));
+        out.println(Base64.getEncoder().encodeToString(enc_passwd));
         login_status = in.readLine();
         if (login_status.contains("failed") || login_status.contains("blocked"))
         {

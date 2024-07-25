@@ -676,38 +676,6 @@ public class ControlThread extends Thread
     }
 
 
-    private void register() throws IOException, SQLException, IllegalBlockSizeException, BadPaddingException
-    {
-        if (user_login != null)
-        {
-            out.println("You need to logout first!");
-            return;
-        }
-        out.println("-- REGISTER --");
-        Gson gson = new Gson();
-        User registerUser = gson.fromJson(in.readLine(), User.class);
-        byte[] username_byte = decryptionCipher.doFinal(Base64.getDecoder().decode(registerUser.getUsername()));
-        byte[] passwd_byte = decryptionCipher.doFinal(Base64.getDecoder().decode(registerUser.getPassword()));
-        String username = new String(username_byte);
-        String passwd = new String(passwd_byte);
-        if (AccountController.isUserExist(username, passwd))
-        {
-            out.println("Username or Email existed!");
-        } else
-        {
-            registerUser.setUsername(username);
-            registerUser.setPassword(passwd);
-            if (AccountController.createUser(registerUser))
-            {
-                out.println("Register success!");
-                createPersonalDirectory(registerUser);
-            } else
-            {
-                out.println("Register failed!");
-            }
-        }
-    }
-
     private void createPersonalDirectory(User new_user) throws SQLException
     {
         File personalDir = new File(UPLOAD_DIRECTORY + File.separator + new_user.getUsername());
@@ -744,7 +712,39 @@ public class ControlThread extends Thread
         return file.getAbsolutePath();
     }
 
-    private void login() throws IOException, SQLException
+    private void register() throws IOException, SQLException, IllegalBlockSizeException, BadPaddingException
+    {
+        if (user_login != null)
+        {
+            out.println("You need to logout first!");
+            return;
+        }
+        out.println("-- REGISTER --");
+        Gson gson = new Gson();
+        User registerUser = gson.fromJson(in.readLine(), User.class);
+        byte[] username_byte = decryptionCipher.doFinal(Base64.getDecoder().decode(registerUser.getUsername()));
+        byte[] passwd_byte = decryptionCipher.doFinal(Base64.getDecoder().decode(registerUser.getPassword()));
+        String username = new String(username_byte);
+        String passwd = new String(passwd_byte);
+        if (AccountController.isUserExist(username, passwd))
+        {
+            out.println("Username or Email existed!");
+        } else
+        {
+            registerUser.setUsername(username);
+            registerUser.setPassword(passwd);
+            if (AccountController.createUser(registerUser))
+            {
+                out.println("Register success!");
+                createPersonalDirectory(registerUser);
+            } else
+            {
+                out.println("Register failed!");
+            }
+        }
+    }
+
+    private void login() throws IOException, SQLException, IllegalBlockSizeException, BadPaddingException
     {
         if (user_login != null)
         {
@@ -754,6 +754,10 @@ public class ControlThread extends Thread
         out.println("-- LOGIN --");
         String username = in.readLine();
         String passwd = in.readLine();
+        byte[] decrypted_username = decryptionCipher.doFinal(Base64.getDecoder().decode(username));
+        byte[] decrypted_passwd = decryptionCipher.doFinal(Base64.getDecoder().decode(passwd));
+        username = new String(decrypted_username);
+        passwd = new String(decrypted_passwd);
         user_login = AccountController.loginUser(username, passwd);
         if (user_login != null)
         {

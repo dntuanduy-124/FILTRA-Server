@@ -254,10 +254,6 @@ public class AccountController
         {
             ps = connection.prepareStatement(query);
             ResultSet rs = ps.executeQuery();
-            System.out.printf("%-10s %-20s %-30s %-40s %-5s %-10s %-5s %n",
-                    "ID", "Username", "Email", "Fullname", "Activated", "Max Size", "Anonymous");
-
-            // In dữ liệu
             while (rs.next())
             {
                 System.out.printf("%-10s %-20s %-30s %-40s %-5b %-10d %-5b %n",
