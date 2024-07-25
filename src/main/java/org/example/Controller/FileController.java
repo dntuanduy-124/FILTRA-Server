@@ -169,7 +169,7 @@ public class FileController
 
     public static void removeFile(java.io.File file_remove)
     {
-        String query = "DELETE FROM `files` WHERE (filepath = )";
+        String query = "DELETE FROM `files` WHERE filepath = ?";
         PreparedStatement ps;
         try
         {

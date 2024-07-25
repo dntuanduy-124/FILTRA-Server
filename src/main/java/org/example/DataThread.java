@@ -90,7 +90,6 @@ public class DataThread extends Thread
 
             while ((bytesRead = in.read(buffer)) != -1)
             {
-
                 out.write(buffer, 0, bytesRead);
             }
             out.flush();
