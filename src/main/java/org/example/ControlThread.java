@@ -7,9 +7,16 @@ import org.example.Model.Notify;
 import org.example.Model.Permission;
 import org.example.Model.User;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -29,12 +36,19 @@ public class ControlThread extends Thread
     public static boolean isPaused = false;
     public static boolean anonymous_mode = false;
     public static final Object pauseLock = new Object();
+    private static final String AES_ALGO = "AES";
+    private final String secret_key = "tnqa_osint_ninja";
+    protected final SecretKeySpec secretKeySpec = new SecretKeySpec(secret_key.getBytes(), AES_ALGO);
+    protected final Cipher encryptionCipher = Cipher.getInstance(AES_ALGO);
+    protected final Cipher decryptionCipher = Cipher.getInstance(AES_ALGO);
 
-    public ControlThread(Socket clientSocket) throws IOException
+    public ControlThread(Socket clientSocket) throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException
     {
         this.clientSocket = clientSocket;
         in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         out = new PrintWriter(clientSocket.getOutputStream(), true);
+        encryptionCipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
+        decryptionCipher.init(Cipher.DECRYPT_MODE, secretKeySpec);
     }
 
     @Override
@@ -54,7 +68,8 @@ public class ControlThread extends Thread
                 String commander = raw_cmd.substring(0, indexCommander).toUpperCase();
                 startingProgramByCommander(commander);
             }
-        } catch (IOException | SQLException e)
+        } catch (IOException | SQLException | IllegalBlockSizeException | BadPaddingException | NoSuchPaddingException |
+                 NoSuchAlgorithmException | InvalidKeyException e)
         {
             System.out.println(e.getMessage());
         } finally
@@ -70,7 +85,7 @@ public class ControlThread extends Thread
     }
 
 
-    private void startingProgramByCommander(String commander) throws SQLException, IOException
+    private void startingProgramByCommander(String commander) throws SQLException, IOException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException
     {
         switch (commander)
         {
@@ -660,31 +675,6 @@ public class ControlThread extends Thread
         WORKING_DIRECTORY = UPLOAD_DIRECTORY;
     }
 
-    private void register() throws IOException, SQLException
-    {
-        if (user_login != null)
-        {
-            out.println("You need to logout first!");
-            return;
-        }
-        out.println("-- REGISTER --");
-        Gson gson = new Gson();
-        User registerUser = gson.fromJson(in.readLine(), User.class);
-        if (AccountController.isUserExist(registerUser.getUsername(), registerUser.getEmail()))
-        {
-            out.println("Username or Email existed!");
-        } else
-        {
-            if (AccountController.createUser(registerUser))
-            {
-                out.println("Register success!");
-                createPersonalDirectory(registerUser);
-            } else
-            {
-                out.println("Register failed!");
-            }
-        }
-    }
 
     private void createPersonalDirectory(User new_user) throws SQLException
     {
@@ -722,7 +712,39 @@ public class ControlThread extends Thread
         return file.getAbsolutePath();
     }
 
-    private void login() throws IOException, SQLException
+    private void register() throws IOException, SQLException, IllegalBlockSizeException, BadPaddingException
+    {
+        if (user_login != null)
+        {
+            out.println("You need to logout first!");
+            return;
+        }
+        out.println("-- REGISTER --");
+        Gson gson = new Gson();
+        User registerUser = gson.fromJson(in.readLine(), User.class);
+        byte[] username_byte = decryptionCipher.doFinal(Base64.getDecoder().decode(registerUser.getUsername()));
+        byte[] passwd_byte = decryptionCipher.doFinal(Base64.getDecoder().decode(registerUser.getPassword()));
+        String username = new String(username_byte);
+        String passwd = new String(passwd_byte);
+        if (AccountController.isUserExist(username, passwd))
+        {
+            out.println("Username or Email existed!");
+        } else
+        {
+            registerUser.setUsername(username);
+            registerUser.setPassword(passwd);
+            if (AccountController.createUser(registerUser))
+            {
+                out.println("Register success!");
+                createPersonalDirectory(registerUser);
+            } else
+            {
+                out.println("Register failed!");
+            }
+        }
+    }
+
+    private void login() throws IOException, SQLException, IllegalBlockSizeException, BadPaddingException
     {
         if (user_login != null)
         {
@@ -732,6 +754,10 @@ public class ControlThread extends Thread
         out.println("-- LOGIN --");
         String username = in.readLine();
         String passwd = in.readLine();
+        byte[] decrypted_username = decryptionCipher.doFinal(Base64.getDecoder().decode(username));
+        byte[] decrypted_passwd = decryptionCipher.doFinal(Base64.getDecoder().decode(passwd));
+        username = new String(decrypted_username);
+        passwd = new String(decrypted_passwd);
         user_login = AccountController.loginUser(username, passwd);
         if (user_login != null)
         {

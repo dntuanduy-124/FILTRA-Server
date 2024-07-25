@@ -118,6 +118,6 @@ public class User
                 + "email: " + this.email + "\n"
                 + "date created: " + this.date_created + "\n"
                 + "activated status: " + this.activated + "\n"
-                + "max data: " + this.max_size / Math.pow(1024, 2) + "MB";
+                + "capacity: " + this.max_size / Math.pow(1024, 2) + "MB";
     }
 }

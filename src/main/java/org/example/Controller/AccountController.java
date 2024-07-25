@@ -256,11 +256,17 @@ public class AccountController
             ResultSet rs = ps.executeQuery();
             while (rs.next())
             {
-                System.out.println(rs.getString("id") + "\t" +
-                        rs.getString("username") + "\t" +
-                        rs.getString("email") + "\t" +
-                        rs.getString("fullname"));
+                System.out.printf("%-10s %-20s %-30s %-40s %-5b %-10d %-5b %n",
+                        rs.getString("id"),
+                        rs.getString("username"),
+                        rs.getString("email"),
+                        rs.getString("fullname"),
+                        rs.getBoolean("activated"),
+                        rs.getLong("max_size"),
+                        rs.getBoolean("anonymous")
+                );
             }
+
         } catch (SQLException e)
         {
             throw new RuntimeException(e);

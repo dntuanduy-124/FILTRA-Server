@@ -4,10 +4,13 @@ import org.example.Controller.AccountController;
 import org.example.Controller.DirectoryController;
 import org.example.Model.User;
 
+import javax.crypto.NoSuchPaddingException;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.util.Objects;
 import java.util.Scanner;
@@ -41,7 +44,7 @@ public class ServerMain
                 Thread client = new ControlThread(clientSocket);
                 client.start();
             }
-        } catch (IOException e)
+        } catch (IOException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException e)
         {
             throw new RuntimeException(e);
         }
