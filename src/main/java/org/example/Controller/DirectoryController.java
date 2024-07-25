@@ -1,7 +1,6 @@
 package org.example.Controller;
 
 import org.example.Model.Directory;
-import org.example.Model.File;
 import org.example.Model.User;
 
 import java.sql.Connection;
@@ -179,7 +178,7 @@ public class DirectoryController
 
     public static void removeDirectory(java.io.File dir_remove)
     {
-        String query = "DELETE FROM `directories` WHERE (path_directory = ?)";
+        String query = "DELETE FROM `directories` WHERE path_directory = ?";
         PreparedStatement ps;
         try
         {

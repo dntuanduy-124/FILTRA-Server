@@ -19,6 +19,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class ControlThread extends Thread
@@ -35,6 +36,7 @@ public class ControlThread extends Thread
     final int DATA_PORT = 2000;
     public static boolean isPaused = false;
     public static boolean anonymous_mode = false;
+    public static long UPLOAD_MAX_SIZE = (long) (10 * Math.pow(1024, 2));
     public static final Object pauseLock = new Object();
     private static final String AES_ALGO = "AES";
     private final String secret_key = "tnqa_osint_ninja";
@@ -83,7 +85,6 @@ public class ControlThread extends Thread
             }
         }
     }
-
 
     private void startingProgramByCommander(String commander) throws SQLException, IOException, IllegalBlockSizeException, BadPaddingException, NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException
     {
@@ -188,6 +189,11 @@ public class ControlThread extends Thread
             out.println("Usage: anonmode ON|OFF");
             return;
         }
+        if (!user_login.isAnonymous())
+        {
+            out.println("Can not use Anonymous mode!");
+            return;
+        }
         String mode = raw_cmd.substring(indexCommander + 1).trim();
         if (mode.equalsIgnoreCase("ON"))
         {
@@ -213,14 +219,29 @@ public class ControlThread extends Thread
         for (int i = 0; i < list_notifications.size(); i++)
         {
             String email_user_interacted = Objects.requireNonNull(AccountController.getUserById(list_notifications.get(i).getId_user_interacted())).getEmail();
-            String file_name = list_notifications.get(i).getId_file().isEmpty() ? " directory name '" + Objects.requireNonNull(DirectoryController.getDirectoryById(list_notifications.get(i).getId_directory())).getName_directory() : " file name '" + Objects.requireNonNull(FileController.getFileById(list_notifications.get(i).getId_file())).getFilename() + "' to '" + Objects.requireNonNull(DirectoryController.getDirectoryById(list_notifications.get(i).getId_directory())).getName_directory() + "'";
+            String file_name = "";
+            DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+            LocalDateTime dateTime = LocalDateTime.parse(list_notifications.get(i).getNotify_time(), dateTimeFormatter);
+            DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("HH:mm:ss - dd/MM/yyyy");
+            String notify_time = dateTime.format(outputFormatter);
+            if (list_notifications.get(i).getId_file().isEmpty())
+            {
+                file_name = "'" + Objects.requireNonNull(DirectoryController.getDirectoryById(list_notifications.get(i).getId_directory())).getName_directory();
+            } else if (list_notifications.get(i).getId_directory().isEmpty())
+            {
+                file_name = "'" + Objects.requireNonNull(FileController.getFileById(list_notifications.get(i).getId_file())).getFilename();
+            } else if (!(list_notifications.get(i).getId_directory().isEmpty() && list_notifications.get(i).getId_file().isEmpty()))
+            {
+                file_name = "'" + Objects.requireNonNull(FileController.getFileById(list_notifications.get(i).getId_file())).getFilename()
+                        + "' to '" + Objects.requireNonNull(DirectoryController.getDirectoryById(list_notifications.get(i).getId_directory())).getName_directory() + "' at ";
+            }
             NotifyController.Action action = list_notifications.get(i).getAction();
             if (action == NotifyController.Action.SHARE)
             {
-                notify_message[i] = email_user_interacted + " shared a" + file_name + "' to you";
+                notify_message[i] = email_user_interacted + " shared " + file_name + "' to you at " + notify_time;
             } else if (action == NotifyController.Action.UPLOAD)
             {
-                notify_message[i] = email_user_interacted + " uploaded a" + file_name;
+                notify_message[i] = email_user_interacted + " uploaded " + file_name + notify_time;
             } else if (action == NotifyController.Action.CREATE_DIRECTORY)
             {
                 notify_message[i] = email_user_interacted + " created a directory";
@@ -274,8 +295,8 @@ public class ControlThread extends Thread
             return;
         }
         Notify notify = null;
-        User user_interacted = AccountController.getUserByEmail(email_user);
-        if (user_interacted == null)
+        User user_be_interacted = AccountController.getUserByEmail(email_user);
+        if (user_be_interacted == null)
         {
             out.println("Sharing failed!");
             return;
@@ -284,7 +305,7 @@ public class ControlThread extends Thread
         {
             if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath(), "f"))
             {
-                notify = new Notify(UUID.randomUUID().toString(), user_interacted.getId(), user_login.getId(), "", Objects.requireNonNull(FileController.getFileByPath(file_shr.getAbsolutePath())).getId_file(), NotifyController.Action.SHARE, LocalDateTime.now().toString());
+                notify = new Notify(UUID.randomUUID().toString(), user_be_interacted.getId(), user_login.getId(), "", Objects.requireNonNull(FileController.getFileByPath(file_shr.getAbsolutePath())).getId_file(), NotifyController.Action.SHARE, LocalDateTime.now().toString());
                 out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
             } else
             {
@@ -294,7 +315,7 @@ public class ControlThread extends Thread
         {
             if (PermissionController.sharingWithPermission(email_user, permission, file_shr.getAbsolutePath(), "d"))
             {
-                notify = new Notify(UUID.randomUUID().toString(), user_interacted.getId(), user_login.getId(), Objects.requireNonNull(DirectoryController.getDirectoryByPath(file_shr.getAbsolutePath())).getId_directory(), "", NotifyController.Action.SHARE, LocalDateTime.now().toString());
+                notify = new Notify(UUID.randomUUID().toString(), user_be_interacted.getId(), user_login.getId(), Objects.requireNonNull(DirectoryController.getDirectoryByPath(file_shr.getAbsolutePath())).getId_directory(), "", NotifyController.Action.SHARE, LocalDateTime.now().toString());
                 out.println("Sharing '" + file_sharing + "'" + " to " + email_user);
             } else
             {
@@ -430,7 +451,7 @@ public class ControlThread extends Thread
         }
         String[] parameters = raw_parameters.split("-");
         String email = parameters[0].trim();
-        if (email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
+        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"))
         {
             out.println("Email not valid!");
             return;
@@ -465,7 +486,7 @@ public class ControlThread extends Thread
         }
 
         long user_sharing_current_size = DirectoryController.calculateDirectorySize(new File(UPLOAD_DIRECTORY + File.separator + user_sharing.getUsername()));
-        if (file_size > user_sharing.getMax_size() - user_sharing_current_size)
+        if (file_size > UPLOAD_MAX_SIZE || (file_size > user_sharing.getMax_size() - user_sharing_current_size))
         {
             out.println("Your file is too large to upload!");
             return;
@@ -611,7 +632,7 @@ public class ControlThread extends Thread
             return;
         }
         long file_size = Long.parseLong(file_sz);
-        if (file_size > user_login.getMax_size() - DirectoryController.calculateDirectorySize(new File(USER_UPLOAD_DIRECTORY)))
+        if ((file_size > UPLOAD_MAX_SIZE) || (file_size > user_login.getMax_size() - DirectoryController.calculateDirectorySize(new File(USER_UPLOAD_DIRECTORY))))
         {
             out.println("Your file is too large to upload!");
             return;
@@ -674,7 +695,6 @@ public class ControlThread extends Thread
         user_login = null;
         WORKING_DIRECTORY = UPLOAD_DIRECTORY;
     }
-
 
     private void createPersonalDirectory(User new_user) throws SQLException
     {

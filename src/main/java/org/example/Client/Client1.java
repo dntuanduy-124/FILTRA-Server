@@ -572,17 +572,22 @@ public class Client1
         {
             download_dir.mkdirs();
         }
-
-        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT); BufferedInputStream in = new BufferedInputStream(new FileInputStream(uploadFile)); BufferedOutputStream out = new BufferedOutputStream(dataSocket.getOutputStream()))
+        long current_byte = 0;
+        try (Socket dataSocket = new Socket(SERVER_NAME, DATA_PORT);
+             BufferedInputStream in = new BufferedInputStream(new FileInputStream(uploadFile));
+             BufferedOutputStream out = new BufferedOutputStream(dataSocket.getOutputStream()))
         {
             byte[] buffer = new byte[4096];
             int bytesRead;
+
             while ((bytesRead = in.read(buffer)) != -1)
             {
+                current_byte += bytesRead;
                 synchronized (pauseLock)
                 {
                     while (isPaused)
                     {
+                        System.out.print("\r < " + Math.round((float) current_byte / Math.pow(1024, 2)) + " / " + Math.round(uploadFile.length() / Math.pow(1024, 2)) + " MB >\n> ");
                         pauseLock.wait();
                     }
                     out.write(buffer, 0, bytesRead);

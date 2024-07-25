@@ -6,6 +6,7 @@ import org.example.Model.User;
 import javax.mail.*;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -246,8 +247,9 @@ public class AccountController
         return null;
     }
 
-    public static void showAllUser()
+    public static ArrayList<User> getAllUser()
     {
+        ArrayList<User> list_user = new ArrayList<>();
         String query = "SELECT * FROM users";
         PreparedStatement ps;
         try
@@ -256,17 +258,20 @@ public class AccountController
             ResultSet rs = ps.executeQuery();
             while (rs.next())
             {
-                System.out.printf("%-10s %-20s %-30s %-40s %-5b %-10d %-5b %n",
+                User user = new User(
                         rs.getString("id"),
+                        rs.getString("fullname"),
                         rs.getString("username"),
                         rs.getString("email"),
-                        rs.getString("fullname"),
+                        rs.getString("password"),
+                        rs.getString("date_created"),
+                        rs.getBoolean("anonymous"),
                         rs.getBoolean("activated"),
-                        rs.getLong("max_size"),
-                        rs.getBoolean("anonymous")
+                        rs.getLong("max_size")
                 );
+                list_user.add(user);
             }
-
+            return list_user;
         } catch (SQLException e)
         {
             throw new RuntimeException(e);
@@ -306,6 +311,29 @@ public class AccountController
         {
             e.printStackTrace();
         }
+    }
+
+    public static void blockAnonymousFeatureById(String id, String mode)
+    {
+        String query = "UPDATE users SET anonymous = ? WHERE id = ?";
+        PreparedStatement ps;
+        try
+        {
+            ps = connection.prepareStatement(query);
+            if (mode.equalsIgnoreCase("AL"))
+            {
+                ps.setBoolean(1, true);
+            } else if (mode.equalsIgnoreCase("BL"))
+            {
+                ps.setBoolean(1, false);
+            }
+            ps.setString(2, id);
+            ps.executeUpdate();
+        } catch (SQLException e)
+        {
+            e.printStackTrace();
+        }
+
     }
 
     public static ArrayList<String> getBlockedUsers()
