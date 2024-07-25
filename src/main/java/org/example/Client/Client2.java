@@ -185,6 +185,7 @@ public class Client2
         System.out.println("up - upload file to server");
         System.out.println("pu - pause upload");
         System.out.println("ru - resume upload");
+        System.out.println("anonmode - switching anonymous mode");
         System.out.println("shr - sharing your file or directory to another user");
         System.out.println("getfs - download the file you received from another user");
         System.out.println("upto - upload file to the shared directory");

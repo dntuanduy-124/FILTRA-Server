@@ -3,9 +3,17 @@ package org.example.Client;
 import com.google.gson.Gson;
 import org.example.Model.User;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.net.Socket;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Scanner;
 import java.util.UUID;
 
@@ -23,6 +31,10 @@ public class Client1
     static final String SERVER_NAME = "localhost";
     static boolean isPaused = false;
     static final Object pauseLock = new Object();
+    private static final String AES_ALGO = "AES";
+    private static final String secret_key = "tnqa_osint_ninja";
+    protected static final SecretKeySpec secretKeySpec = new SecretKeySpec(secret_key.getBytes(), AES_ALGO);
+    protected static Cipher cipher;
 
     public static void main(String[] args)
     {
@@ -32,15 +44,18 @@ public class Client1
             in = new BufferedReader(new InputStreamReader(controlSocket.getInputStream()));
             out = new PrintWriter(controlSocket.getOutputStream(), true);
             sc = new Scanner(System.in);
+            cipher = Cipher.getInstance(AES_ALGO);
+            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
             System.out.println("---- WELCOME TO FILTRA SERVER ----");
             startingProgram();
-        } catch (IOException e)
+        } catch (IOException | InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException |
+                 IllegalBlockSizeException | BadPaddingException e)
         {
             System.out.println(e.getMessage());
         }
     }
 
-    private static void startingProgram() throws IOException
+    private static void startingProgram() throws IOException, IllegalBlockSizeException, BadPaddingException
     {
         while (true)
         {
@@ -55,7 +70,7 @@ public class Client1
 
     }
 
-    private static void sendCommandToServer(String raw_command) throws IOException
+    private static void sendCommandToServer(String raw_command) throws IOException, IllegalBlockSizeException, BadPaddingException
     {
         commander = raw_command.substring(0, (raw_command + " ").indexOf(" ")).toUpperCase();
         switch (commander)
@@ -185,6 +200,7 @@ public class Client1
         System.out.println("up - upload file to server");
         System.out.println("pu - pause upload");
         System.out.println("ru - resume upload");
+        System.out.println("anonmode - switching anonymous mode");
         System.out.println("shr - sharing your file or directory to another user");
         System.out.println("getfs - download the file you received from another user");
         System.out.println("upto - upload file to the shared directory");
@@ -622,7 +638,7 @@ public class Client1
         System.out.println("Login success!");
     }
 
-    private static void register() throws IOException
+    private static void register() throws IOException, IllegalBlockSizeException, BadPaddingException
     {
         out.println(commander);
         String fullname, username, email, passwd, rePasswd;
@@ -646,7 +662,11 @@ public class Client1
             rePasswd = sc.nextLine();
         } while (!rePasswd.equals(passwd));
         Gson gson = new Gson();
-        User register_user = new User(UUID.randomUUID().toString(), fullname, username, email, passwd, LocalDateTime.now().toString(), true, false, 0);
+        byte[] username_byte = cipher.doFinal(username.getBytes());
+        byte[] passwd_byte = cipher.doFinal(passwd.getBytes());
+        String encrypted_username = Base64.getEncoder().encodeToString(username_byte);
+        String encrypted_passwd = Base64.getEncoder().encodeToString(passwd_byte);
+        User register_user = new User(UUID.randomUUID().toString(), fullname, encrypted_username, email, encrypted_passwd, LocalDateTime.now().toString(), true, false, 0);
         out.println(gson.toJson(register_user));
         register_status = in.readLine();
         System.out.println(register_status);
