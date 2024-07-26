@@ -3,9 +3,6 @@ package org.example;
 import org.example.Controller.AccountController;
 import org.example.Controller.DirectoryController;
 import org.example.Model.User;
-import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
-import org.jline.utils.InfoCmp;
 
 import javax.crypto.NoSuchPaddingException;
 import java.io.File;
@@ -26,6 +23,7 @@ public class ServerMain
 
     public static void main(String[] args)
     {
+
         Thread server_management = new Thread(() ->
         {
             try
@@ -37,43 +35,31 @@ public class ServerMain
             }
         });
         server_management.start();
-
         try
         {
             ss = new ServerSocket(CONTROL_PORT);
-            System.out.println("Server is running now ...");
+//            System.out.println("Server is running now ...");
             while (true)
             {
                 Socket clientSocket = ss.accept();
                 Thread client = new ControlThread(clientSocket);
                 client.start();
             }
+
         } catch (IOException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException e)
         {
             throw new RuntimeException(e);
         }
+
     }
 
     public static void serverManagementProgram() throws Exception
     {
-
         Scanner sc = new Scanner(System.in);
         while (true)
         {
-            System.out.print("Filtra-Server> ");
+            System.out.print(" Filtra-Server> ");
             String cmd = sc.nextLine();
-            if (cmd.equalsIgnoreCase("SERVEROFF"))
-            {
-                System.out.print("Are you sure? Y/N: ");
-                cmd = sc.nextLine();
-                if (cmd.equalsIgnoreCase("Y"))
-                {
-                    System.out.println("Server is turning off");
-                    ss.close();
-                    return;
-                }
-                continue;
-            }
             executeProgram(cmd);
         }
     }
@@ -105,7 +91,7 @@ public class ServerMain
                 setMaxSizeUpload(cmd);
                 break;
             case "CLEAR":
-                clearScreen();
+                clearConsole();
                 break;
             case "HELP":
                 showHelp();
@@ -126,15 +112,12 @@ public class ServerMain
         System.out.println("SETCP - set capacity size for a user");
         System.out.println("MAXUP - set max size upload file");
         System.out.println("CLEAR - clear the console screen");
-        System.out.println("SERVEROFF - turn off server");
         System.out.println("HELP - show this help");
     }
 
-    public static void clearScreen() throws Exception
+    public static void clearConsole()
     {
-        Terminal terminal = TerminalBuilder.builder().system(true).build();
-        terminal.puts(InfoCmp.Capability.clear_screen);
-        terminal.flush();
+        System.out.print("\033\143");
     }
 
     private static void listBlockedUsers()
