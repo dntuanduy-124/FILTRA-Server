@@ -23,58 +23,48 @@ public class ServerMain
 
     public static void main(String[] args)
     {
+
         Thread server_management = new Thread(() ->
         {
             try
             {
                 serverManagementProgram();
-            } catch (IOException | SQLException e)
+            } catch (Exception e)
             {
                 throw new RuntimeException(e);
             }
         });
         server_management.start();
-
         try
         {
             ss = new ServerSocket(CONTROL_PORT);
-            System.out.println("Server running now ...");
+//            System.out.println("Server is running now ...");
             while (true)
             {
                 Socket clientSocket = ss.accept();
                 Thread client = new ControlThread(clientSocket);
                 client.start();
             }
+
         } catch (IOException | NoSuchPaddingException | NoSuchAlgorithmException | InvalidKeyException e)
         {
             throw new RuntimeException(e);
         }
+
     }
 
-    public static void serverManagementProgram() throws IOException, SQLException
+    public static void serverManagementProgram() throws Exception
     {
-
         Scanner sc = new Scanner(System.in);
         while (true)
         {
-            System.out.print("Filtra-Server> ");
+            System.out.print(" Filtra-Server> ");
             String cmd = sc.nextLine();
-            if (cmd.equalsIgnoreCase("SERVEROFF"))
-            {
-                System.out.print("Are you sure? Y/N: ");
-                cmd = sc.nextLine();
-                if (cmd.equalsIgnoreCase("Y"))
-                {
-                    System.out.println("Server is turning off");
-                    ss.close();
-                }
-                continue;
-            }
             executeProgram(cmd);
         }
     }
 
-    public static void executeProgram(String cmd) throws SQLException
+    public static void executeProgram(String cmd) throws Exception
     {
         String commander = cmd.substring(0, (cmd + " ").indexOf(" ")).trim().toUpperCase();
         switch (commander)
@@ -100,6 +90,9 @@ public class ServerMain
             case "MAXUP":
                 setMaxSizeUpload(cmd);
                 break;
+            case "CLEAR":
+                clearConsole();
+                break;
             case "HELP":
                 showHelp();
                 break;
@@ -118,7 +111,13 @@ public class ServerMain
         System.out.println("ANON - config anonymous mode for user");
         System.out.println("SETCP - set capacity size for a user");
         System.out.println("MAXUP - set max size upload file");
+        System.out.println("CLEAR - clear the console screen");
         System.out.println("HELP - show this help");
+    }
+
+    public static void clearConsole()
+    {
+        System.out.print("\033\143");
     }
 
     private static void listBlockedUsers()
