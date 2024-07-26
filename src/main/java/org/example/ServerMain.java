@@ -3,6 +3,9 @@ package org.example;
 import org.example.Controller.AccountController;
 import org.example.Controller.DirectoryController;
 import org.example.Model.User;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+import org.jline.utils.InfoCmp;
 
 import javax.crypto.NoSuchPaddingException;
 import java.io.File;
@@ -28,7 +31,7 @@ public class ServerMain
             try
             {
                 serverManagementProgram();
-            } catch (IOException | SQLException e)
+            } catch (Exception e)
             {
                 throw new RuntimeException(e);
             }
@@ -51,7 +54,7 @@ public class ServerMain
         }
     }
 
-    public static void serverManagementProgram() throws IOException, SQLException
+    public static void serverManagementProgram() throws Exception
     {
 
         Scanner sc = new Scanner(System.in);
@@ -67,6 +70,7 @@ public class ServerMain
                 {
                     System.out.println("Server is turning off");
                     ss.close();
+                    return;
                 }
                 continue;
             }
@@ -74,7 +78,7 @@ public class ServerMain
         }
     }
 
-    public static void executeProgram(String cmd) throws SQLException
+    public static void executeProgram(String cmd) throws Exception
     {
         String commander = cmd.substring(0, (cmd + " ").indexOf(" ")).trim().toUpperCase();
         switch (commander)
@@ -100,6 +104,9 @@ public class ServerMain
             case "MAXUP":
                 setMaxSizeUpload(cmd);
                 break;
+            case "CLEAR":
+                clearScreen();
+                break;
             case "HELP":
                 showHelp();
                 break;
@@ -118,7 +125,16 @@ public class ServerMain
         System.out.println("ANON - config anonymous mode for user");
         System.out.println("SETCP - set capacity size for a user");
         System.out.println("MAXUP - set max size upload file");
+        System.out.println("CLEAR - clear the console screen");
+        System.out.println("SERVEROFF - turn off server");
         System.out.println("HELP - show this help");
+    }
+
+    public static void clearScreen() throws Exception
+    {
+        Terminal terminal = TerminalBuilder.builder().system(true).build();
+        terminal.puts(InfoCmp.Capability.clear_screen);
+        terminal.flush();
     }
 
     private static void listBlockedUsers()
