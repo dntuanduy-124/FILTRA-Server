@@ -38,7 +38,7 @@ public class ServerMain
         try
         {
             ss = new ServerSocket(CONTROL_PORT);
-            System.out.println("Server running now ...");
+            System.out.println("Server is running now ...");
             while (true)
             {
                 Socket clientSocket = ss.accept();
